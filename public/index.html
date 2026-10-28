@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a class="active" href="#">Dashboard</a>
+      <a href="#" aria-disabled="true" title="Coming next">Customers</a>
+      <a href="#" aria-disabled="true" title="Coming next">Jobs</a>
+      <a href="#" aria-disabled="true" title="Coming next">Settings</a>
+    </nav>
+    <div class="date-control">
+      <button id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="date">
+      <button id="nextDay" aria-label="Next day">›</button>
+      <button id="todayBtn" class="ghost">Today</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Schedule</h2>
+        <span class="muted" id="scheduleLabel"></span>
+      </div>
+      <div class="schedule" id="schedule"></div>
+    </section>
+
+    <div class="split">
+      <section class="card">
+        <div class="card-head">
+          <h2>Dispatch</h2>
+          <select id="statusFilter" aria-label="Filter by status">
+            <option value="">All statuses</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="grid" id="dispatch">
+            <thead><tr>
+              <th>Job</th><th>Window</th><th>Customer</th><th>Route</th><th>Crew</th><th>Truck</th><th>Quote</th><th>Status</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card calc">
+        <div class="card-head"><h2>Pricing calculator</h2><span class="muted" id="rateCardName"></span></div>
+        <form id="calcForm">
+          <div class="row">
+            <label>Est. hours <input type="number" name="hours" value="4" min="0.25" step="0.25"></label>
+            <label>Movers <input type="number" name="crewSize" value="2" min="1" max="10"></label>
+            <label>Trucks <input type="number" name="trucks" value="1" min="1" max="4"></label>
+          </div>
+          <div class="row">
+            <label>From <input name="originAddress" autocomplete="off" placeholder="Street, city, ZIP"></label>
+            <label>To <input name="destinationAddress" autocomplete="off" placeholder="Street, city, ZIP"></label>
+          </div>
+          <p class="muted zip-note" id="zipNote"></p>
+          <div class="row">
+            <label>Distance (mi) <input type="number" name="distanceMiles" value="10" min="0" step="0.1"></label>
+            <label>Move date <input type="date" name="moveDate"></label>
+          </div>
+          <fieldset>
+            <legend>Origin access</legend>
+            <label>Stair flights <input type="number" name="o_stairs" value="0" min="0"></label>
+            <label>Long walks <input type="number" name="o_walks" value="0" min="0"></label>
+            <label class="check"><input type="checkbox" name="o_elevator"> Elevator</label>
+          </fieldset>
+          <fieldset>
+            <legend>Destination access</legend>
+            <label>Stair flights <input type="number" name="d_stairs" value="0" min="0"></label>
+            <label>Long walks <input type="number" name="d_walks" value="0" min="0"></label>
+            <label class="check"><input type="checkbox" name="d_elevator"> Elevator</label>
+          </fieldset>
+        </form>
+        <div id="quote" class="quote" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="assignDialog">
+    <form method="dialog" id="assignForm">
+      <h3 id="assignTitle">Assign</h3>
+      <p class="muted" id="assignSub"></p>
+      <label class="slot-pick">Crew slot on schedule
+        <select id="assignSlot"><option value="">None</option></select>
+      </label>
+      <div class="assign-cols">
+        <div><h4>Crew</h4><div id="assignCrew" class="checklist"></div></div>
+        <div><h4>Trucks</h4><div id="assignTrucks" class="checklist"></div></div>
+      </div>
+      <p class="error" id="assignError" role="alert"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button id="assignSave" value="default" class="primary">Save assignment</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dirDialog">
+    <form method="dialog" id="dirForm">
+      <h3 id="dirTitle">Directions</h3>
+      <ol class="stops" id="dirStops"></ol>
+      <p><a id="dirLink" target="_blank" rel="noopener">Open route in Google Maps ↗</a></p>
+      <h4>Email to crew</h4>
+      <div id="dirCrew" class="dir-crew"></div>
+      <details><summary class="muted">Preview email</summary><pre id="dirPreview" class="preview"></pre></details>
+      <p class="error" id="dirError" role="alert"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Close</button>
+        <button id="dirSend" value="default" class="primary">Send directions</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

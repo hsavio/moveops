@@ -1,0 +1,21 @@
+{
+  "name": "moveops",
+  "version": "1.0.0",
+  "description": "Short-haul moving operations: scheduling, dispatch, pricing, customers",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning --watch src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning src/db/seed.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\"",
+    "import": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/legacy/import.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "nodemailer": "^10.2.1"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  }
+}

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { calculateQuote, billableHours, crewHourlyRate, priceJob, validateEstimateTerms } = require('../src/pricing');
+const { calculateQuote, billableHours, crewHourlyRate, priceJob, validateEstimateTerms, hoursBetween, closeoutPrice } = require('../src/pricing');
 
 const card = {
   per_mover_hourly_cents: 7450, extra_truck_hourly_cents: 4000,
@@ -90,4 +90,17 @@ test('estimate terms: binding needs a guaranteed price, not-to-exceed needs hour
   assert.equal(validateEstimateTerms({ ...baseJob, estimate_type: 'not_to_exceed', not_to_exceed_cents: 100000 }), null);
   assert.equal(priceJob({ ...baseJob, estimate_type: 'not_to_exceed', not_to_exceed_cents: 100000 }).cap_cents, 100000);
   assert.match(validateEstimateTerms({ ...baseJob, pricing_method: 'fixed' }), /fixed price/);
+});
+
+test('closeout: hourly billed on actual hours with minimum and rounding; cap applies; binding keeps its price', () => {
+  assert.equal(hoursBetween('08:00', '13:20'), 5.33);
+  assert.equal(hoursBetween('13:00', '08:00'), null);
+  assert.equal(closeoutPrice(baseJob), null);                                  // actual hours not known yet
+  const actual = closeoutPrice({ ...baseJob, actual_hours: 5.33 });
+  assert.equal(actual.billable_hours, 5.5);
+  assert.equal(actual.total_cents, 5.5 * 22500 + 15000);
+  assert.equal(closeoutPrice({ ...baseJob, actual_hours: 1 }).billable_hours, 2); // minimum
+  const nte = closeoutPrice({ ...baseJob, estimate_type: 'not_to_exceed', not_to_exceed_cents: 100000, actual_hours: 6 });
+  assert.deepEqual([nte.total_cents, nte.capped, nte.uncapped_cents], [100000, true, 6 * 22500 + 15000]);
+  assert.equal(closeoutPrice({ ...baseJob, pricing_method: 'fixed', estimate_type: 'binding', fixed_price_cents: 90000 }).total_cents, 90000);
 });

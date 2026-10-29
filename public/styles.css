@@ -235,3 +235,12 @@ tr.inactive td { opacity: .55; }
   .new-btn { margin-left: 0; }
 }
 .settings-grid h2 { margin-bottom: 10px; }
+.pay-add { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+.pay-add input, .pay-add select { min-width: 0; width: 100%; }
+.pay-add #payRef { grid-column: span 2; }
+.balance { margin-top: 12px; }
+.balance .line { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; }
+.balance .line.total { font-weight: 700; font-size: 15px; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
+.balance .due { color: var(--warn); }
+.balance .paid { color: var(--s-completed); }
+#closeoutCard > button { margin-top: 10px; }

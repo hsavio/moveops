@@ -32,7 +32,7 @@ runs without it and tells you what's missing.
 | `GEOCODER` | `census` (default) or `off`. See *Distances* below. |
 | `ROAD_DISTANCE_FACTOR` | Straight-line miles are multiplied by this to estimate road miles (default `1.2`). |
 | `YARD_ADDRESS` | First stop of the directions sent to crews (yard → pickup → drop-off). |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Emailing directions to crew. For Gmail / Google Workspace use `smtp.gmail.com`, port 465 and an app password. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Emailing customers (proposal, booking confirmation, invoice) and crew directions. For Gmail / Google Workspace use `smtp.gmail.com`, port 465 and an app password. |
 
 ## Distances
 
@@ -109,6 +109,14 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/estimates?q=&status=&from=&to=` | Estimate search |
 | GET/POST/PUT | `/api/estimates`, `/api/estimates/:id` | Load / create / update an estimate (customer, origin, destination, job, items, services) |
 | POST | `/api/estimates/price` | Live total for unsaved form data |
+| PUT | `/api/estimates/:id/closeout` | `{actual_start_time, actual_end_time, actual_hours, final_total_cents, tips_cents}` (blank final = calculated) |
+| POST/DELETE | `/api/estimates/:id/payments[/:paymentId]` | `{kind, method, amount_cents, reference, received_at}`. Card numbers are refused |
+| GET | `/api/estimates/:id/email/:kind` | Preview a customer email (`proposal`, `confirmation`, `invoice`) |
+| POST | `/api/estimates/:id/email` | `{kind}`. Send it to the customer's email address |
+
+Moving a job to `booked` (`PATCH /api/jobs/:id/status`) emails the customer a confirmation when email is set up and
+the customer has an address; the response's `confirmation` says whether it was sent. Pass `sendConfirmation: false`
+to skip it.
 
 ## Legacy import
 

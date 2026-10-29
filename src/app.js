@@ -131,7 +131,9 @@ function createApp(db, services = {}) {
     });
   });
 
-  app.patch('/api/jobs/:id/status', (req, res) => {
+  const { sendDocument } = registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer });
+
+  app.patch('/api/jobs/:id/status', wrap(async (req, res) => {
     const job = db.prepare('SELECT id, status, move_date, arrival_window_start FROM jobs WHERE id = ?').get(req.params.id);
     if (!job) throw new HttpError(404, 'Job not found');
     const to = req.body.status;
@@ -147,8 +149,17 @@ function createApp(db, services = {}) {
       db.prepare('INSERT INTO job_events (job_id, from_status, to_status, note, actor) VALUES (?, ?, ?, ?, ?)')
         .run(job.id, job.status, to, req.body.note ?? null, req.body.actor ?? 'dispatcher');
     });
-    res.json({ id: job.id, status: to, allowed: TRANSITIONS[to] });
-  });
+    // Accepting a quote emails the customer a confirmation. The booking stands even if the email can't go out.
+    let confirmation;
+    if (to === 'booked' && req.body.sendConfirmation !== false) {
+      try {
+        confirmation = await sendDocument(job.id, 'confirmation', req.body.actor ?? 'dispatcher');
+      } catch (err) {
+        confirmation = { sent: false, reason: `Email failed: ${err.message}` };
+      }
+    }
+    res.json({ id: job.id, status: to, allowed: TRANSITIONS[to], confirmation });
+  }));
 
   // Replace a job's crew/truck assignment, rejecting double-bookings on the same date.
   app.put('/api/jobs/:id/assignments', (req, res) => {
@@ -313,8 +324,6 @@ function createApp(db, services = {}) {
       destination: b.destination,
     }, card));
   }));
-
-  registerEstimateRoutes(app, db, { currentRateCard, distance, TRANSITIONS });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
   // eslint-disable-next-line no-unused-vars

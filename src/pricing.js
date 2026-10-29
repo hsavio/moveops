@@ -144,4 +144,25 @@ function validateEstimateTerms(job) {
   return null;
 }
 
-module.exports = { calculateQuote, billableHours, crewHourlyRate, priceJob, validateEstimateTerms };
+// Hours between two 'HH:MM' times on the same day, or null.
+function hoursBetween(start, end) {
+  if (!/^\d{2}:\d{2}$/.test(start || '') || !/^\d{2}:\d{2}$/.test(end || '')) return null;
+  const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const diff = mins(end) - mins(start);
+  return diff > 0 ? Math.round((diff / 60) * 100) / 100 : null;
+}
+
+/**
+ * The final bill after the move. Hourly jobs are billed on actual hours (minimum and rounding still
+ * apply) and a not-to-exceed cap limits the result; fixed and itemized jobs keep their guaranteed price.
+ * Returns null for an hourly job whose actual hours aren't known yet.
+ */
+function closeoutPrice(job, opts) {
+  const hourly = job.pricing_method === 'hourly';
+  if (hourly && !(job.actual_hours > 0)) return null;
+  const p = priceJob(hourly ? { ...job, est_hours: job.actual_hours } : job, opts);
+  const capped = p.cap_cents != null && p.total_cents > p.cap_cents;
+  return { ...p, uncapped_cents: p.total_cents, total_cents: capped ? p.cap_cents : p.total_cents, capped };
+}
+
+module.exports = { calculateQuote, billableHours, crewHourlyRate, priceJob, validateEstimateTerms, hoursBetween, closeoutPrice };

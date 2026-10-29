@@ -26,9 +26,12 @@ function render(est, settings) {
     ['New', c.new_phone], ['Fax', c.fax]].filter(([, v]) => v);
   const isInvoice = docType === 'invoice';
   const box = (on) => `<span class="box">${on ? '✓' : ''}</span>`;
-  const paid = est.payments.reduce((s, p) => s + (p.kind === 'refund' ? -p.amount_cents : p.amount_cents), 0);
-  const total = job.final_total_cents ?? price.total_cents;
+  const paid = est.paid_cents;
   const hourly = job.pricing_method === 'hourly';
+  // The invoice bills the closeout (actual hours) when there is one; the proposal shows the estimate.
+  const billed = isInvoice ? est.closeout || price : price;
+  const total = isInvoice ? job.final_total_cents ?? billed.total_cents : price.total_cents;
+  const lines = isInvoice && job.final_total_manual ? [{ description: 'Moving services', amount_cents: total }] : billed.lines;
 
   document.title = `${isInvoice ? 'Invoice' : 'Proposal'} ${job.job_number}${name ? ` · ${name}` : ''}`;
   $('#doc').innerHTML = `
@@ -52,7 +55,7 @@ function render(est, settings) {
       <div class="addr">
         <h3>Customer</h3>
         <p><strong>${esc(name)}</strong>${c.company_name && c.last_name ? `<br>Attn: ${esc([c.first_name, c.last_name].filter(Boolean).join(' '))}` : ''}</p>
-        <p>${phones.map(([k, v]) => `${k}: ${esc(v)}`).join('<br>')}${c.email ? `<br>${esc(c.email)}` : ''}</p>
+        <p>${[...phones.map(([k, v]) => `${k}: ${esc(v)}`), c.email && esc(c.email)].filter(Boolean).join('<br>')}</p>
       </div>
       ${addressBlock('Origin', est.origin)}
       ${addressBlock('Destination', est.destination)}
@@ -75,16 +78,19 @@ function render(est, settings) {
       <h2>Items / Services</h2>
       <table class="lines">
         <tbody>
-          ${price.lines.map((l) => `<tr><td>${esc(l.description)}</td><td class="num">${money2(l.amount_cents)}</td></tr>`).join('')}
+          ${lines.map((l) => `<tr><td>${esc(l.description)}</td><td class="num">${money2(l.amount_cents)}</td></tr>`).join('')}
         </tbody>
         <tfoot>
-          <tr class="total"><td>${isInvoice ? 'Total' : hourly && job.estimate_type !== 'binding' ? `Estimated total (${price.billable_hours} hours)` : 'Total'}</td>
+          <tr class="total"><td>${isInvoice ? 'Total' : hourly ? `Estimated total (${price.billable_hours} hours)` : 'Total'}</td>
             <td class="num">${money2(total)}</td></tr>
           ${isInvoice ? `<tr><td>Payments received</td><td class="num">${money2(-paid)}</td></tr>
             <tr class="total"><td>Balance due</td><td class="num">${money2(total - paid)}</td></tr>` : ''}
         </tfoot>
       </table>
-      ${price.cap_cents ? `<p>Billed on actual time, but will not exceed <strong>${money2(price.cap_cents)}</strong>.</p>` : ''}
+      ${isInvoice && job.actual_start_time ? `<p>Time on the job: ${fmt12(job.actual_start_time)} – ${fmt12(job.actual_end_time)}
+        (${job.actual_hours} h${billed.billable_hours && billed.billable_hours !== job.actual_hours ? `, billed ${billed.billable_hours} h` : ''})</p>` : ''}
+      ${isInvoice && billed.capped ? `<p>Capped at the not-to-exceed amount of <strong>${money2(billed.cap_cents)}</strong>.</p>` : ''}
+      ${!isInvoice && price.cap_cents ? `<p>Billed on actual time, but will not exceed <strong>${money2(price.cap_cents)}</strong>.</p>` : ''}
     </section>
 
     ${hourly && !isInvoice ? `

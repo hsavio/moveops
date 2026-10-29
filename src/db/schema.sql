@@ -199,8 +199,12 @@ CREATE TABLE IF NOT EXISTS jobs (
   discount_percent        REAL NOT NULL DEFAULT 0,
   discount_cents          INTEGER NOT NULL DEFAULT 0,
   quoted_total_cents      INTEGER,
+  -- Closeout (after the move)
+  actual_start_time       TEXT,                      -- 'HH:MM'
+  actual_end_time         TEXT,
   actual_hours            REAL,
   final_total_cents       INTEGER,
+  final_total_manual      INTEGER NOT NULL DEFAULT 0 CHECK (final_total_manual IN (0,1)),  -- 1 = typed in, not calculated
   tips_cents              INTEGER NOT NULL DEFAULT 0,
   special_items           TEXT,                      -- piano, safe, gun cabinet...
   notes                   TEXT,                      -- shown to crew / customer

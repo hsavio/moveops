@@ -2,7 +2,8 @@
 // plus the reference data the form needs (settings, rates, item catalog, customer search).
 const { tx } = require('./db');
 const { HttpError, EMAIL_RE, today } = require('./http');
-const { priceJob, validateEstimateTerms } = require('./pricing');
+const { priceJob, validateEstimateTerms, hoursBetween, closeoutPrice } = require('./pricing');
+const { renderEmail } = require('./documents');
 const { scrubSensitive } = require('./legacy/transform');
 const { DEFAULT_SETTINGS } = require('./db/defaults');
 
@@ -91,7 +92,14 @@ function nextJobNumber(db) {
   return String((row.n || 1000) + 1);
 }
 
-function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS }) {
+const DOCUMENT_LABELS = { proposal: 'Proposal', confirmation: 'Confirmation', invoice: 'Invoice' };
+const PAYMENT_KINDS = ['deposit', 'payment', 'refund'];
+const PAYMENT_METHODS = ['cash', 'check', 'card', 'ach', 'other'];
+
+/**
+ * @returns {{ sendDocument(jobId: number, kind: string, actor?: string): Promise<{sent: boolean, to?: string, reason?: string}> }}
+ */
+function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer }) {
   // ------------------------------------------------------------ settings + rates
   const readSettings = () => ({ ...DEFAULT_SETTINGS, ...Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value])) });
 
@@ -233,6 +241,10 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS }) {
     const items = db.prepare('SELECT * FROM job_items WHERE job_id = ? ORDER BY sort_order, id').all(id);
     const services = db.prepare('SELECT * FROM job_services WHERE job_id = ? ORDER BY sort_order, id').all(id);
     const card = currentRateCard();
+    const opts = { items, services, billingIncrementMin: card?.billing_increment_min ?? 15 };
+    const payments = db.prepare('SELECT id, kind, method, amount_cents, reference, received_at FROM payments WHERE job_id = ? ORDER BY received_at, id').all(id);
+    const paid = payments.reduce((sum, p) => sum + (p.kind === 'refund' ? -p.amount_cents : p.amount_cents), 0);
+    const owed = job.final_total_cents ?? job.quoted_total_cents ?? 0;
     return {
       job,
       customer: db.prepare('SELECT * FROM customers WHERE id = ?').get(job.customer_id),
@@ -240,8 +252,12 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS }) {
       destination: addressOut(job.destination_address_id && addr.get(job.destination_address_id)),
       items,
       services,
-      price: priceJob(job, { items, services, billingIncrementMin: card?.billing_increment_min ?? 15 }),
-      payments: db.prepare('SELECT id, kind, method, amount_cents, reference, received_at FROM payments WHERE job_id = ? ORDER BY received_at').all(id),
+      price: priceJob(job, opts),
+      closeout: closeoutPrice(job, opts),
+      payments,
+      paid_cents: paid,
+      balance_cents: owed - paid,
+      email_configured: Boolean(mailer?.configured),
       history: db.prepare('SELECT from_status, to_status, note, actor, created_at FROM job_events WHERE job_id = ? ORDER BY id DESC').all(id),
       allowed_statuses: TRANSITIONS[job.status] ?? [],
       sales_rep: job.sales_rep_id ? db.prepare(`SELECT id, first_name || ' ' || last_name AS name FROM crew_members WHERE id = ?`).get(job.sales_rep_id) : null,
@@ -356,6 +372,92 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS }) {
 
   app.post('/api/estimates', (req, res) => res.status(201).json(loadEstimate(saveEstimate(null, req.body))));
   app.put('/api/estimates/:id(\\d+)', (req, res) => res.json(loadEstimate(saveEstimate(Number(req.params.id), req.body))));
+
+  // ------------------------------------------------------------ closeout + payments
+  // Body: { actual_start_time, actual_end_time, actual_hours, final_total_cents (blank = calculate), tips_cents }
+  app.put('/api/estimates/:id(\\d+)/closeout', (req, res) => {
+    const id = Number(req.params.id);
+    const est = loadEstimate(id);
+    const b = req.body;
+    const start = cleanValue('actual_start_time', 'time', b.actual_start_time);
+    const end = cleanValue('actual_end_time', 'time', b.actual_end_time);
+    let hours = cleanValue('actual_hours', 'number', b.actual_hours);
+    if (hours == null && start && end) hours = hoursBetween(start, end);
+    if (start && end && !hoursBetween(start, end)) throw new HttpError(400, 'End time must be after start time');
+    const manual = cleanValue('final_total_cents', 'cents', b.final_total_cents);
+    const tips = cleanValue('tips_cents', 'cents', b.tips_cents) ?? 0;
+    const computed = closeoutPrice({ ...est.job, actual_hours: hours }, { items: est.items, services: est.services,
+      billingIncrementMin: currentRateCard()?.billing_increment_min ?? 15 });
+    const final = manual ?? computed?.total_cents ?? null;
+    tx(db, () => {
+      db.prepare(`UPDATE jobs SET actual_start_time = ?, actual_end_time = ?, actual_hours = ?, final_total_cents = ?,
+        final_total_manual = ?, tips_cents = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
+        .run(start, end, hours, final, manual != null ? 1 : 0, tips, id);
+      if (final != null && final !== est.job.final_total_cents) {
+        db.prepare(`INSERT INTO job_events (job_id, from_status, to_status, note, actor) VALUES (?, ?, ?, ?, ?)`)
+          .run(id, est.job.status, est.job.status, `Final total $${(final / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}${manual != null ? ' (entered)' : ''}`, b.actor ?? 'office');
+      }
+    });
+    res.json(loadEstimate(id));
+  });
+
+  // Payments record method, amount and a reference (check number, or card last 4 + auth code) only.
+  app.post('/api/estimates/:id(\\d+)/payments', (req, res) => {
+    const id = Number(req.params.id);
+    loadEstimate(id);
+    const b = req.body;
+    const amount = Number(b.amount_cents);
+    if (!PAYMENT_KINDS.includes(b.kind ?? 'payment')) throw new HttpError(400, 'Payment type is not valid');
+    if (b.method && !PAYMENT_METHODS.includes(b.method)) throw new HttpError(400, 'Payment method is not valid');
+    if (!(Number.isInteger(amount) && amount > 0)) throw new HttpError(400, 'Enter the amount');
+    const reference = rejectSensitive(text(b.reference), 'Reference');
+    if (reference && /\d{12,}/.test(reference.replace(/[\s-]/g, ''))) {
+      throw new HttpError(400, 'For card payments, record only the last 4 digits and the authorization code');
+    }
+    const date = cleanValue('received_at', 'date', b.received_at) ?? today();
+    db.prepare('INSERT INTO payments (job_id, kind, method, amount_cents, reference, received_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, b.kind ?? 'payment', b.method || null, amount, reference, `${date}T12:00:00.000Z`);
+    res.status(201).json(loadEstimate(id));
+  });
+
+  app.delete('/api/estimates/:id(\\d+)/payments/:paymentId(\\d+)', (req, res) => {
+    const id = Number(req.params.id);
+    if (!db.prepare('DELETE FROM payments WHERE id = ? AND job_id = ?').run(Number(req.params.paymentId), id).changes) {
+      throw new HttpError(404, 'Payment not found');
+    }
+    res.json(loadEstimate(id));
+  });
+
+  // ------------------------------------------------------------ customer emails
+  async function sendDocument(jobId, kind, actor = 'office') {
+    if (!DOCUMENT_LABELS[kind]) throw new HttpError(400, 'Unknown document');
+    const est = loadEstimate(jobId);
+    const to = est.customer.email;
+    if (!to) return { sent: false, reason: 'The customer has no email address' };
+    if (!mailer?.configured) return { sent: false, reason: 'Email is not set up yet (SMTP settings missing)' };
+    const msg = renderEmail(kind, est, readSettings());
+    await mailer.send({ to, ...msg });
+    db.prepare('INSERT INTO job_events (job_id, from_status, to_status, note, actor) VALUES (?, ?, ?, ?, ?)')
+      .run(jobId, est.job.status, est.job.status, `${DOCUMENT_LABELS[kind]} emailed to ${to}`, actor);
+    return { sent: true, to };
+  }
+
+  app.get('/api/estimates/:id(\\d+)/email/:kind', (req, res) => {
+    if (!DOCUMENT_LABELS[req.params.kind]) throw new HttpError(400, 'Unknown document');
+    res.json(renderEmail(req.params.kind, loadEstimate(Number(req.params.id)), readSettings()));
+  });
+
+  app.post('/api/estimates/:id(\\d+)/email', async (req, res, next) => {
+    try {
+      const result = await sendDocument(Number(req.params.id), req.body.kind, req.body.actor);
+      if (!result.sent) throw new HttpError(result.reason.startsWith('Email is not') ? 503 : 400, result.reason);
+      res.json({ ...result, estimate: loadEstimate(Number(req.params.id)) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  return { sendDocument };
 }
 
 module.exports = { registerEstimateRoutes };

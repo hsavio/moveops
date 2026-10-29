@@ -121,6 +121,105 @@ function renderHeader() {
     if (est) btn.href = `proposal.html?id=${est.job.id}&doc=${doc}`;
   }
   $('#invoiceBtn').hidden = !est || !['completed', 'invoiced'].includes(est.job.status);
+  const doc = emailDocFor(est);
+  $('#emailBtn').hidden = !doc;
+  if (doc) {
+    $('#emailBtn').textContent = `Email ${doc}`;
+    $('#emailBtn').dataset.doc = doc;
+    $('#emailBtn').disabled = !est.email_configured || !est.customer.email;
+    $('#emailBtn').title = !est.email_configured ? 'Email is not set up yet (SMTP settings in .env)' : !est.customer.email ? 'Add the customer\'s email first' : '';
+  }
+  renderCloseout();
+}
+
+// The document that fits the job's stage: proposal before booking, confirmation once booked, invoice after the move.
+function emailDocFor(est) {
+  if (!est || est.job.status === 'cancelled') return null;
+  if (['lead', 'quoted'].includes(est.job.status)) return 'proposal';
+  if (['completed', 'invoiced'].includes(est.job.status)) return 'invoice';
+  return 'confirmation';
+}
+
+// ------------------------------------------------------------------ closeout + payments
+function renderCloseout() {
+  const est = state.est;
+  const afterMove = est && ['dispatched', 'in_progress', 'completed', 'invoiced'].includes(est.job.status);
+  $('#closeoutCard').hidden = !afterMove;
+  $('#paymentsCard').hidden = !est || ['lead', 'cancelled'].includes(est.job.status) && !est.payments.length;
+  if (!est) return;
+  const j = est.job;
+  $('#coStart').value = j.actual_start_time ?? '';
+  $('#coEnd').value = j.actual_end_time ?? '';
+  $('#coHours').value = j.actual_hours ?? '';
+  $('#coTips').value = j.tips_cents ? fromCents(j.tips_cents) : '';
+  $('#coFinal').value = j.final_total_manual ? fromCents(j.final_total_cents) : '';
+  const c = est.closeout;
+  $('#coCalc').textContent = c
+    ? `Calculated: ${money2(c.total_cents)}${c.billable_hours != null ? ` (${c.billable_hours} billable h)` : ''}${c.capped ? `, capped from ${money2(c.uncapped_cents)}` : ''}. Leave blank to use it.`
+    : 'Enter the hours to calculate the final bill.';
+  $('#closeoutHelp').hidden = Boolean(j.actual_hours) || j.pricing_method !== 'hourly';
+
+  $('#paymentTable tbody').innerHTML = est.payments.map((p) => `<tr>
+      <td class="nowrap">${fmtDate(p.received_at)}</td>
+      <td>${esc(p.kind)}${p.method ? ` · ${esc(p.method)}` : ''}</td>
+      <td>${esc(p.reference ?? '')}</td>
+      <td class="num">${money2(p.kind === 'refund' ? -p.amount_cents : p.amount_cents)}</td>
+      <td><button type="button" class="icon" data-remove-payment="${p.id}" aria-label="Remove payment">✕</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty small">No payments yet.</td></tr>';
+  const owed = j.final_total_cents ?? j.quoted_total_cents ?? 0;
+  $('#balance').innerHTML = `<div class="line"><span>${j.final_total_cents != null ? 'Final total' : 'Quoted total'}</span><span>${money2(owed)}</span></div>
+    <div class="line"><span>Paid</span><span>${money2(est.paid_cents)}</span></div>
+    <div class="line total ${est.balance_cents > 0 ? 'due' : 'paid'}"><span>${est.balance_cents > 0 ? 'Balance due' : 'Paid in full'}</span>
+      <span>${money2(Math.max(0, est.balance_cents))}</span></div>`;
+  if (!$('#payDate').value) $('#payDate').value = localDate();
+}
+
+async function saveCloseout() {
+  try {
+    const est = await api(`/api/estimates/${state.id}/closeout`, { method: 'PUT', body: {
+      actual_start_time: $('#coStart').value, actual_end_time: $('#coEnd').value, actual_hours: $('#coHours').value,
+      tips_cents: toCents($('#coTips').value), final_total_cents: toCents($('#coFinal').value),
+    } });
+    showError('');
+    state.est = est;
+    renderHeader();
+    renderHistory();
+    toast(est.job.final_total_cents != null ? `Final total ${money2(est.job.final_total_cents)}` : 'Closeout saved');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function addPayment() {
+  try {
+    const est = await api(`/api/estimates/${state.id}/payments`, { method: 'POST', body: {
+      kind: $('#payKind').value, method: $('#payMethod').value, amount_cents: toCents($('#payAmount').value),
+      reference: $('#payRef').value, received_at: $('#payDate').value,
+    } });
+    $('#payAmount').value = '';
+    $('#payRef').value = '';
+    showError('');
+    state.est = est;
+    renderCloseout();
+    toast('Payment recorded');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function emailDocument() {
+  const doc = $('#emailBtn').dataset.doc;
+  if (state.dirty && !(await save())) return;
+  if (!confirm(`Email the ${doc} to ${state.est.customer.email}?`)) return;
+  try {
+    const r = await api(`/api/estimates/${state.id}/email`, { method: 'POST', body: { kind: doc } });
+    showError('');
+    state.est = r.estimate;
+    renderHistory();
+    toast(`${doc[0].toUpperCase()}${doc.slice(1)} emailed to ${r.to}`);
+  } catch (err) {
+    showError(err.message);
+  }
 }
 
 function renderHistory() {
@@ -134,9 +233,10 @@ async function changeStatus(status) {
   if (status === 'cancelled' && !confirm('Cancel this move?')) return;
   if (state.dirty && !(await save())) return;
   try {
-    await api(`/api/jobs/${state.id}/status`, { method: 'PATCH', body: { status } });
+    const r = await api(`/api/jobs/${state.id}/status`, { method: 'PATCH', body: { status } });
     fill(await api(`/api/estimates/${state.id}`));
-    toast(`Status: ${statusLabel(status)}`);
+    const c = r.confirmation;
+    toast(c ? (c.sent ? `Booked. Confirmation emailed to ${c.to}` : `Booked. Confirmation not sent: ${c.reason}`) : `Status: ${statusLabel(status)}`);
   } catch (err) {
     showError(err.message);
   }
@@ -367,7 +467,7 @@ form.addEventListener('submit', (e) => { e.preventDefault(); save(); });
 
 form.addEventListener('input', (e) => {
   const t = e.target;
-  if (t.id === 'customerSearch') return;
+  if (t.id === 'customerSearch' || t.closest('#closeoutCard, #paymentsCard')) return;
   if (t.dataset.item != null) {
     const it = state.items[Number(t.dataset.item)];
     it[t.dataset.key] = t.dataset.key === 'unit_cents' ? toCents(t.value) ?? 0 : Number(t.value) || 1;
@@ -385,6 +485,25 @@ form.addEventListener('input', (e) => {
 form.addEventListener('change', (e) => {
   if (e.target.dataset.item != null) renderItems(); // refresh line totals once editing finishes
   if (e.target.name === 'job.pricing_method' || e.target.name === 'job.estimate_type') { updateMethodUI(); changed(); }
+});
+$('#emailBtn').addEventListener('click', emailDocument);
+// Enter inside the closeout/payment cards runs that card's action instead of saving the estimate.
+form.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName === 'TEXTAREA') return;
+  if (e.target.closest('#paymentsCard')) { e.preventDefault(); addPayment(); }
+  else if (e.target.closest('#closeoutCard')) { e.preventDefault(); saveCloseout(); }
+});
+$('#coSave').addEventListener('click', saveCloseout);
+$('#payAdd').addEventListener('click', addPayment);
+$('#paymentTable').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-remove-payment]');
+  if (!b || !confirm('Remove this payment?')) return;
+  try {
+    state.est = await api(`/api/estimates/${state.id}/payments/${b.dataset.removePayment}`, { method: 'DELETE' });
+    renderCloseout();
+  } catch (err) {
+    showError(err.message);
+  }
 });
 $('#workflow').addEventListener('click', (e) => {
   const b = e.target.closest('[data-status]');

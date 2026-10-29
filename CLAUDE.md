@@ -17,12 +17,15 @@ for setup, API and import details; this file holds context and decisions.
   `src/http.js`: shared HttpError/wrap. `src/db/defaults.js`: owner's default rates + proposal wording (ensureDefaults).
 - `src/calendar.js`: calendar events (moves, call-backs, site visits) + day notes.
 - `src/reports.js`: Activities, Unpaid Moves, Booking Commission reports + agents API.
+- `src/payroll.js`: pure pay rules (pay week, split/hourly job pay, tip shares, TAX1099 rows).
+  `src/personnel.js`: crew records, adjustments, weekly payroll + payouts, year-end 1099 summary/export.
 - `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
   booking confirmation, invoice) as pure text+HTML renderers.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
 - `public/`: `common.js` shared helpers; `index.html` dashboard; `estimates.html` search list; `estimate.html` the
   Estimate form; `proposal.html?id=&doc=proposal|invoice` printable documents (`print.css`); `settings.html`;
-  `calendar.html` month / week / printable schedule list with day notes; `reports.html` (print + CSV).
+  `calendar.html` month / week / printable schedule list with day notes; `reports.html` (print + CSV);
+  `crew.html` personnel + adjustments; `payroll.html` weekly pay sheet + year-end 1099s.
 
 ## Conventions
 - Money is integer cents; dates `YYYY-MM-DD`; times `HH:MM` 24h. Enums enforced with CHECK constraints.
@@ -66,6 +69,14 @@ for setup, API and import details; this file holds context and decisions.
 - **Payments:** never store card number/expiry/CVV (the legacy Payment Information box did). Method, amount,
   last 4 and auth code only. Notes fields reject text that looks like a card number or SSN.
 - Estimate numbers: imported legacy estimates keep their number (e.g. 11541); new ones continue from the highest.
+- **Crew pay (owner, Oct 2026):** all movers are 1099 contractors (no employees). Each worker earns their own % of
+  the job total (drivers more than movers) or an hourly rate; tips are excluded from the total and split evenly
+  across the crew on the job. Pay week Saturday-Friday, paid the following **Wednesday**. Only closed-out moves
+  (completed/invoiced) count. "Mark paid" snapshots a crew_payouts row; 1099 Box 1 = sum of payouts by pay date.
+- **TAX1099 export** follows the owner's template (1099-NEC import, 58 columns). Recipient TIN is left blank
+  (no SSNs in MoveOps); Client RecipientID = `MO-<worker id>`. Payer EIN stored in settings (SSN shape refused).
+  Threshold default $600 (≤2025) / $2,000 (2026+), editable on screen; owner to confirm with accountant.
+- **Logins:** office staff only (crew don't log in).
 
 ## Requirements from the owner's legacy screenshots (Oct 2026)
 - Business: All The Right Moves, 110 FM 1488 Rd, Conroe TX 77384, (281) 785-9900, DOT# 006038868C.
@@ -95,7 +106,8 @@ for setup, API and import details; this file holds context and decisions.
    Reports done: Activities (estimates/scheduled/cancelled/moved; "scheduled" = date of the booking event, legacy
    ScheduledDate imported as one), Unpaid Moves (default all time), Booking Commission (agent commission_percent of
    closed-or-quoted total; cancelled moves earn none; mark paid). Agents managed in Settings.
-   Next: Personnel (pay rate/split %, W-9 status, TAX1099 export; logins/roles); extra stops.
+   Personnel + payroll done (Crew and Payroll pages).
+   Next: logo upload for proposals/letters/emails; office logins (admin/office roles); extra stops.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).

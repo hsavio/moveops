@@ -334,3 +334,31 @@ tr.inactive td { opacity: .55; }
   .nav a { white-space: nowrap; }
 }
 .segmented.compact span { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- crew + payroll */
+.crew-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.crew-side { display: grid; gap: 16px; }
+.inline-group { display: flex; gap: 10px; align-items: center; }
+tr.selected-row td { background: var(--accent-soft); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--bg); color: var(--muted); }
+.badge.received { background: color-mix(in srgb, var(--s-completed) 15%, transparent); color: var(--s-completed); }
+.badge.requested { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.badge.missing { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.neg { color: var(--danger); }
+.adj-add { display: grid; grid-template-columns: 130px 1fr; gap: 6px; margin-bottom: 8px; }
+.adj-add input, .adj-add select { min-width: 0; width: 100%; }
+#workerForm > button { margin-top: 12px; }
+.pay-details ul { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
+.pay-details summary { cursor: pointer; }
+.pay-one { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.pay-one input { width: 70px; }
+.pay-bulk { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 10px; }
+a.button[aria-disabled] { opacity: .5; pointer-events: none; }
+@media (max-width: 900px) { .crew-layout { grid-template-columns: 1fr; } }
+@media print {
+  .no-print, .pay-bulk { display: none !important; }
+  .pay-details summary { display: none; }
+}
+.fields label.inline { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+.fields label.inline input { width: auto; }
+.adj-add #adjDesc { grid-column: 1 / -1; }

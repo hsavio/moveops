@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Crew</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="estimates.html">Estimates</a>
+      <a href="reports.html">Reports</a>
+      <a class="active" href="crew.html">Crew</a>
+      <a href="payroll.html">Payroll</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+  <main class="crew-layout">
+    <section class="card">
+      <div class="card-head"><h2>Crew</h2>
+        <span class="inline-group"><label class="inline small"><input type="checkbox" id="showInactive"> Show inactive</label>
+        <button class="primary" id="newWorker">+ Add worker</button></span></div>
+      <div class="table-wrap">
+        <table class="grid" id="crewTable">
+          <thead><tr><th>Name</th><th>Role</th><th>Pay</th><th>W-9</th><th>TAX1099</th><th>Phone</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="muted small">All movers are 1099 contractors. MoveOps never stores SSNs: keep TINs in TAX1099.com.</p>
+    </section>
+
+    <div class="crew-side">
+      <section class="card" id="editor" hidden>
+        <div class="card-head"><h2 id="editorTitle">Worker</h2><button class="icon" id="closeEditor" aria-label="Close">✕</button></div>
+        <form id="workerForm" novalidate>
+          <div class="fields two">
+            <label>First name <input name="first_name" required></label>
+            <label>Last name <input name="last_name" required></label>
+            <label>Role <select name="role"><option value="mover">Mover</option><option value="driver">Driver</option><option value="lead">Crew lead</option></select></label>
+            <label>Phone <input type="tel" name="phone"></label>
+            <label class="span2">Email (for job directions) <input type="email" name="email"></label>
+            <label class="span2">Mailing address (for the 1099) <input name="address"></label>
+            <label>City <input name="city"></label>
+            <div class="fields two tight">
+              <label>State <input name="state" maxlength="2"></label>
+              <label>ZIP <input name="postal_code" inputmode="numeric" maxlength="10"></label>
+            </div>
+            <label>Start date <input type="date" name="start_date"></label>
+            <label>End date <input type="date" name="end_date"></label>
+          </div>
+          <h3>Pay</h3>
+          <div class="segmented" role="radiogroup" aria-label="Pay type">
+            <label><input type="radio" name="pay_type" value="split" checked><span>% of each job</span></label>
+            <label><input type="radio" name="pay_type" value="hourly"><span>Hourly</span></label>
+          </div>
+          <div class="fields two">
+            <label class="pay-split">Split (% of job total, tips excluded) <input type="number" min="0" max="100" step="0.5" name="split_percent"></label>
+            <label class="pay-hourly" hidden>Hourly rate ($) <input class="money" name="wage_cents" inputmode="decimal"></label>
+          </div>
+          <h3>Tax paperwork</h3>
+          <div class="fields two">
+            <label>W-9 <select name="w9_status"><option value="missing">Not received</option><option value="requested">Requested</option><option value="received">Received</option></select></label>
+            <label>W-9 received on <input type="date" name="w9_received_on"></label>
+            <label class="inline span2"><input type="checkbox" name="in_tax1099"> Set up as a recipient in TAX1099.com</label>
+          </div>
+          <h3>Other</h3>
+          <div class="fields two">
+            <label class="inline"><input type="checkbox" name="available_as_mover" checked> Available as mover</label>
+            <label class="inline"><input type="checkbox" name="is_salesperson"> Sales rep</label>
+            <label class="inline"><input type="checkbox" name="active" checked> Active</label>
+            <label class="span2">Notes <textarea name="notes" rows="2"></textarea></label>
+          </div>
+          <p class="error small" id="workerError"></p>
+          <button class="primary">Save</button>
+        </form>
+      </section>
+
+      <section class="card" id="adjCard" hidden>
+        <h2>Pay adjustments</h2>
+        <p class="muted small">Extra pay, advances, damage deductions… Use a minus sign to deduct. Included in that week's pay.</p>
+        <div class="adj-add">
+          <input type="date" id="adjDate" aria-label="Date">
+          <select id="adjCategory" aria-label="Category">
+            <option value="extra_pay">Extra pay</option><option value="advance">Advance / loan</option><option value="damage">Damage</option>
+            <option value="expense">Expense (gas, phone…)</option><option value="tip">Tip</option><option value="other">Other</option>
+          </select>
+          <input id="adjDesc" placeholder="Description" aria-label="Description">
+          <input class="money" id="adjAmount" placeholder="-50.00" inputmode="decimal" aria-label="Amount">
+          <button type="button" id="adjAdd">Add</button>
+        </div>
+        <table class="lines" id="adjTable"><tbody></tbody></table>
+        <h3>Recent pay</h3>
+        <p class="small" id="paidYear"></p>
+        <table class="lines" id="payoutTable"><tbody></tbody></table>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="crew.js"></script>
+</body>
+</html>

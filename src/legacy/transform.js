@@ -353,6 +353,8 @@ function personnel(row) {
   return {
     legacy_id: get('personnelid', 'employeeid', 'id'), first_name: first, last_name: last,
     phone: get('phone', 'cellphone', 'homephone'), email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    address: get('address1', 'address', 'streetaddress'), city: get('city'), state: get('state')?.toUpperCase() ?? null,
+    postal_code: get('zip', 'zipcode', 'postalcode'),
   };
 }
 

@@ -107,6 +107,13 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
 
   app.put('/api/settings', (req, res) => {
     const input = req.body.settings || {};
+    // The payer EIN is printed on 1099s. Refuse anything shaped like an SSN (123-45-6789).
+    if (input.payer_ein) {
+      const ein = String(input.payer_ein).trim();
+      if (/^\d{3}-?\d{2}-?\d{4}$/.test(ein) && !/^\d{2}-?\d{7}$/.test(ein)) throw new HttpError(400, 'That looks like an SSN. Enter the business EIN (12-3456789).');
+      if (!/^\d{2}-?\d{7}$/.test(ein)) throw new HttpError(400, 'EIN must look like 12-3456789');
+      input.payer_ein = `${ein.replace('-', '').slice(0, 2)}-${ein.replace('-', '').slice(2)}`;
+    }
     const put = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     tx(db, () => {
       for (const key of Object.keys(DEFAULT_SETTINGS)) if (key in input) put.run(key, String(input[key] ?? '').trim());
@@ -457,7 +464,7 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
     }
   });
 
-  return { sendDocument };
+  return { sendDocument, readSettings };
 }
 
 module.exports = { registerEstimateRoutes };

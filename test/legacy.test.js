@@ -139,7 +139,10 @@ test('estimate status mapping', () => {
 
 test('personnel rows never carry SSNs', () => {
   const p = t.personnel({ '': '', ' Last Name': 'Doe', 'First Name': 'Jo', SocialSecurityNumber: '123-45-6789' });
-  assert.deepEqual(p, { legacy_id: null, first_name: 'Jo', last_name: 'Doe', phone: null, email: null });
+  assert.deepEqual(p, { legacy_id: null, first_name: 'Jo', last_name: 'Doe', phone: null, email: null,
+    address: null, city: null, state: null, postal_code: null });
+  const withAddr = t.personnel({ 'Last Name': 'Doe', 'First Name': 'Jo', 'Address 1': '9 Pine St', City: 'Spring', State: 'tx', ZIP: '77380' });
+  assert.deepEqual([withAddr.address, withAddr.city, withAddr.state, withAddr.postal_code], ['9 Pine St', 'Spring', 'TX', '77380']);
 });
 
 test('Estimates import: header detection, customer de-duplication, idempotent, defaults ignored', () => {

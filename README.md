@@ -22,6 +22,8 @@ Requires Node ≥ 22.13 (uses the built-in `node:sqlite`; no native modules).
 | Proposal / invoice (`/proposal.html?id=&doc=proposal\|invoice`) | Complete plain-paper documents for the office printer |
 | Calendar (`/calendar.html`) | Month / week view and a printable schedule for any date range: moves, call-backs, site visits, notes per day |
 | Reports (`/reports.html`) | Activities, Unpaid moves (collections), Booking commission; any period, print or download CSV |
+| Crew (`/crew.html`) | Workers: contact and mailing address, pay (% of job or hourly), W-9 and TAX1099 status, pay adjustments |
+| Payroll (`/payroll.html`) | Weekly pay sheet (Sat–Fri, paid Wednesday), mark paid, print; year-end 1099 totals and TAX1099 import file |
 | Settings (`/settings.html`) | Rates (per mover, trip charge, minimum, billing step, crew-size overrides), company details and proposal wording, agents & commission %, items catalog |
 
 ## Configuration
@@ -119,6 +121,13 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/reports/commissions?from=&to=&agent_id=&unpaid=1` | Commission per agent per move |
 | POST | `/api/jobs/:id/commission-paid` | `{paid, date}` |
 | GET/POST/PUT | `/api/agents`, `/api/agents/:id` | Agents / realtors with commission % (`?all=1` includes inactive) |
+| GET/POST/PUT | `/api/personnel`, `/api/personnel/:id` | Crew records (SSN/TIN/licence fields are refused) |
+| POST | `/api/personnel/:id/adjustments` | `{adjustment_date, category, description, amount_cents}` (negative deducts) |
+| DELETE | `/api/adjustments/:id` | Refused once that week is paid |
+| GET | `/api/payroll?date=` | Pay sheet for the week containing the date |
+| POST/DELETE | `/api/payroll/pay`, `/api/payroll/pay/:id` | `{date, crew_member_ids, method, reference}` mark paid / undo |
+| GET | `/api/tax1099?year=&threshold_cents=` | Yearly totals per worker, missing address/W-9 flags |
+| GET | `/api/tax1099/export?year=&threshold_cents=` | CSV in TAX1099.com's 1099-NEC import template |
 | PUT | `/api/estimates/:id/closeout` | `{actual_start_time, actual_end_time, actual_hours, final_total_cents, tips_cents}` (blank final = calculated) |
 | POST/DELETE | `/api/estimates/:id/payments[/:paymentId]` | `{kind, method, amount_cents, reference, received_at}`. Card numbers are refused |
 | GET | `/api/estimates/:id/email/:kind` | Preview a customer email (`proposal`, `confirmation`, `invoice`) |

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Payroll</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="estimates.html">Estimates</a>
+      <a href="reports.html">Reports</a>
+      <a href="crew.html">Crew</a>
+      <a class="active" href="payroll.html">Payroll</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+  <main>
+    <div class="report-toolbar">
+      <div class="segmented compact" role="tablist" aria-label="Payroll view">
+        <label><input type="radio" name="tab" value="week" checked><span>Weekly pay</span></label>
+        <label><input type="radio" name="tab" value="year"><span>Year-end 1099s</span></label>
+      </div>
+      <span class="week-only cal-nav">
+        <button id="prevWeek" aria-label="Previous week">‹</button>
+        <button id="thisWeek" class="ghost">Last week</button>
+        <button id="nextWeek" aria-label="Next week">›</button>
+      </span>
+      <span class="year-only" hidden>
+        <label class="inline small">Year <input type="number" id="year" min="2000" max="2100" style="width: 90px"></label>
+        <label class="inline small">1099 threshold ($) <input class="money" id="threshold" style="width: 100px"></label>
+      </span>
+      <span class="spacer"></span>
+      <button class="week-only" id="printBtn">Print pay sheet</button>
+      <a class="button primary year-only" id="exportBtn" hidden>Download TAX1099 file</a>
+    </div>
+
+    <section class="card" id="weekView">
+      <div class="card-head"><h2 id="weekTitle"></h2><span class="muted" id="payday"></span></div>
+      <div id="warnings"></div>
+      <div class="table-wrap">
+        <table class="grid" id="payTable">
+          <thead><tr><th>Worker</th><th>Pay</th><th class="num">Jobs</th><th class="num">Job pay</th><th class="num">Tips</th><th class="num">Adjustments</th><th class="num">Total</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td colspan="6"><strong>Week total</strong></td><td class="num"><strong id="weekTotal"></strong></td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="pay-bulk">
+        <label class="inline small">Pay by <select id="bulkMethod"><option value="cash">Cash</option><option value="check">Check</option><option value="ach">Bank transfer</option><option value="other">Other</option></select></label>
+        <button id="payAll">Mark all unpaid as paid</button>
+      </div>
+      <p class="muted small">Pay week is Saturday–Friday, paid the next Wednesday. Each worker gets their % of the job total (or hours × rate);
+        tips are split evenly across the crew on the job. Only closed-out moves count.</p>
+    </section>
+
+    <section class="card" id="yearView" hidden>
+      <h2 id="yearTitle"></h2>
+      <div id="payerWarn"></div>
+      <div class="table-wrap">
+        <table class="grid" id="yearTable">
+          <thead><tr><th>Worker</th><th>Mailing address</th><th>W-9</th><th>In TAX1099</th><th class="num">Weeks paid</th><th class="num">Paid in year</th><th>1099 needed</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="muted small">Totals add up what was actually paid out (by Wednesday pay date) in the year, including tip shares and adjustments.
+        The download fills TAX1099's 1099-NEC import template. Recipient TINs are left blank because MoveOps never stores SSNs:
+        workers set up in TAX1099 are matched by name and the "Client RecipientID" (MO-number), or add the TIN in TAX1099 before submitting.
+        Check the threshold and totals with your accountant.</p>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="payroll.js"></script>
+</body>
+</html>

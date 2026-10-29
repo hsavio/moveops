@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   company_phone: '',
   company_email: '',
   dot_number: '',
+  payer_ein: '',          // business EIN for 1099s (never an SSN)
   signer_name: '',
   signer_title: 'Operating Manager',
   proposal_intro: 'We are furnishing you with the move price based on the items and conditions attached. '

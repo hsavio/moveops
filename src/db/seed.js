@@ -10,7 +10,7 @@ function isoDate(offsetDays) {
 
 function seed(db) {
   tx(db, () => {
-    for (const t of ['crew_adjustments', 'payments', 'job_events', 'job_trucks', 'job_crew', 'quote_lines', 'job_items', 'job_services',
+    for (const t of ['crew_payouts', 'crew_adjustments', 'payments', 'job_events', 'job_trucks', 'job_crew', 'quote_lines', 'job_items', 'job_services',
       'jobs', 'trucks', 'crew_members', 'addresses', 'customers']) {
       db.exec(`DELETE FROM ${t}`);
     }
@@ -44,6 +44,11 @@ function seed(db) {
       .forEach(([f, l, role], i) => crew.run(f, l, role, `555-01${String(i).padStart(2, '0')}`,
         i < 8 ? `${f}.${l}@example.com`.toLowerCase() : null, role === 'lead' ? 2600 : 2000));
     db.prepare("UPDATE crew_members SET is_salesperson = 1 WHERE first_name = 'Dana' AND last_name = 'Ortiz'").run();
+    // Pay: drivers and leads get a bigger share of each job than movers; one mover is paid hourly.
+    db.prepare(`UPDATE crew_members SET pay_type = 'split', split_percent = CASE role WHEN 'mover' THEN 12 ELSE 16 END,
+      address = '100 Demo St', city = 'Spring', state = 'TX', postal_code = '77380',
+      w9_status = CASE WHEN id % 3 = 0 THEN 'missing' ELSE 'received' END`).run();
+    db.prepare("UPDATE crew_members SET pay_type = 'hourly', wage_cents = 1800 WHERE first_name = 'Jo' AND last_name = 'Park'").run();
 
     const cust = db.prepare('INSERT INTO customers (kind, first_name, last_name, company_name, phone, email, advertising_source) VALUES (?, ?, ?, ?, ?, ?, ?)');
     const addr = db.prepare(`INSERT INTO addresses (customer_id, line1, city, state, postal_code, dwelling_type, floor, stair_flights, has_elevator, long_walks)

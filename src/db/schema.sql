@@ -106,6 +106,8 @@ CREATE TABLE IF NOT EXISTS addresses (
 CREATE INDEX IF NOT EXISTS idx_addresses_customer ON addresses(customer_id);
 
 -- ---------------------------------------------------------------- resources
+-- Crew (all 1099 contractors) and office staff who sell. No SSNs or licence numbers are stored:
+-- TINs live in TAX1099.com, and the 1099 export leaves them blank.
 CREATE TABLE IF NOT EXISTS crew_members (
   id            INTEGER PRIMARY KEY,
   first_name    TEXT NOT NULL,
@@ -113,8 +115,22 @@ CREATE TABLE IF NOT EXISTS crew_members (
   role          TEXT NOT NULL DEFAULT 'mover' CHECK (role IN ('mover','driver','lead')),
   phone         TEXT,
   email         TEXT,                          -- where job directions are sent
+  address       TEXT,                          -- mailing address, for the 1099
+  city          TEXT,
+  state         TEXT,
+  postal_code   TEXT,
+  start_date    TEXT,
+  end_date      TEXT,
+  available_as_mover INTEGER NOT NULL DEFAULT 1 CHECK (available_as_mover IN (0,1)),
   is_salesperson INTEGER NOT NULL DEFAULT 0 CHECK (is_salesperson IN (0,1)),
-  wage_cents    INTEGER NOT NULL DEFAULT 0,   -- hourly, for job costing
+  -- Pay: a percent of each job's total (tips excluded; tips are split evenly), or an hourly rate.
+  pay_type      TEXT NOT NULL DEFAULT 'split' CHECK (pay_type IN ('split','hourly')),
+  split_percent REAL NOT NULL DEFAULT 0 CHECK (split_percent >= 0 AND split_percent <= 100),
+  wage_cents    INTEGER NOT NULL DEFAULT 0,   -- hourly pay rate when pay_type = 'hourly'
+  w9_status     TEXT NOT NULL DEFAULT 'missing' CHECK (w9_status IN ('missing','requested','received')),
+  w9_received_on TEXT,
+  in_tax1099    INTEGER NOT NULL DEFAULT 0 CHECK (in_tax1099 IN (0,1)),  -- recipient set up in TAX1099.com
+  notes         TEXT,
   active        INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
   legacy_id     TEXT UNIQUE
 );
@@ -348,3 +364,23 @@ CREATE TABLE IF NOT EXISTS day_notes (
   notes       TEXT NOT NULL,
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- What each worker was paid for a pay week (Saturday-Friday, paid the following Wednesday).
+-- A snapshot taken when the week is marked paid; 1099 totals add these up by pay date.
+CREATE TABLE IF NOT EXISTS crew_payouts (
+  id                INTEGER PRIMARY KEY,
+  crew_member_id    INTEGER NOT NULL REFERENCES crew_members(id),
+  week_start        TEXT NOT NULL,              -- Saturday
+  week_end          TEXT NOT NULL,              -- Friday
+  pay_date          TEXT NOT NULL,              -- Wednesday after week_end
+  job_pay_cents     INTEGER NOT NULL,
+  tips_cents        INTEGER NOT NULL,
+  adjustments_cents INTEGER NOT NULL,
+  total_cents       INTEGER NOT NULL,
+  method            TEXT CHECK (method IN ('cash','check','ach','other')),
+  reference         TEXT,                       -- check number etc.
+  details           TEXT NOT NULL,              -- JSON lines (jobs, tips, adjustments) as paid
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (crew_member_id, week_start)
+);
+CREATE INDEX IF NOT EXISTS idx_crew_payouts_date ON crew_payouts(pay_date);

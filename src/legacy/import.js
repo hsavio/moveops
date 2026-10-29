@@ -121,8 +121,10 @@ const importers = {
   Personnel(db, rows, report) {
     const byLegacy = db.prepare('SELECT id FROM crew_members WHERE legacy_id = ?');
     const byName = db.prepare('SELECT id FROM crew_members WHERE lower(first_name) = lower(?) AND lower(last_name) = lower(?)');
-    const update = db.prepare('UPDATE crew_members SET first_name = ?, last_name = ?, phone = coalesce(?, phone), email = coalesce(?, email), active = 1 WHERE id = ?');
-    const insert = db.prepare(`INSERT INTO crew_members (first_name, last_name, phone, email, role, active, legacy_id) VALUES (?, ?, ?, ?, 'mover', 1, ?)`);
+    const update = db.prepare(`UPDATE crew_members SET first_name = ?, last_name = ?, phone = coalesce(?, phone), email = coalesce(?, email),
+      address = coalesce(?, address), city = coalesce(?, city), state = coalesce(?, state), postal_code = coalesce(?, postal_code), active = 1 WHERE id = ?`);
+    const insert = db.prepare(`INSERT INTO crew_members (first_name, last_name, phone, email, address, city, state, postal_code, role, active, legacy_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'mover', 1, ?)`);
     const sensitive = Object.keys(rows[0] || {}).filter((k) => /ssn|social|bank|routing|account/i.test(k));
     if (sensitive.length) report.warnings.push(`Ignored sensitive column(s): ${sensitive.map((k) => `"${k.trim()}"`).join(', ')}`);
     let withoutId = 0;
@@ -131,8 +133,9 @@ const importers = {
       if (!p) { report.skipped++; continue; }
       if (!p.legacy_id) withoutId++;
       const existing = (p.legacy_id && byLegacy.get(p.legacy_id)) || byName.get(p.first_name, p.last_name);
-      if (existing) update.run(p.first_name, p.last_name, p.phone, p.email, existing.id);
-      else insert.run(p.first_name, p.last_name, p.phone, p.email, p.legacy_id);
+      const addr = [p.address, p.city, p.state, p.postal_code];
+      if (existing) update.run(p.first_name, p.last_name, p.phone, p.email, ...addr, existing.id);
+      else insert.run(p.first_name, p.last_name, p.phone, p.email, ...addr, p.legacy_id);
       report.imported++;
     }
     if (withoutId) report.warnings.push(`${withoutId} rows have no PersonnelID, so they cannot be linked to Adjustments.`);

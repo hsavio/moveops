@@ -8,6 +8,7 @@ const { HttpError, wrap, EMAIL_RE, today } = require('./http');
 const { registerEstimateRoutes } = require('./estimates');
 const { registerCalendarRoutes } = require('./calendar');
 const { registerReportRoutes } = require('./reports');
+const { registerPersonnelRoutes } = require('./personnel');
 
 // Allowed job status transitions. Anything not listed is rejected.
 const TRANSITIONS = {
@@ -134,7 +135,8 @@ function createApp(db, services = {}) {
     });
   });
 
-  const { sendDocument } = registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer });
+  const { sendDocument, readSettings } = registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer });
+  registerPersonnelRoutes(app, db, { readSettings });
   const { dayNote } = registerCalendarRoutes(app, db);
   registerReportRoutes(app, db);
 

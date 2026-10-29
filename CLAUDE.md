@@ -15,11 +15,13 @@ for setup, API and import details; this file holds context and decisions.
 - `src/pricing.js`: pure pricing (`priceJob` for saved estimates, `calculateQuote` for the dashboard calculator).
 - `src/app.js`: dashboard/dispatch API. `src/estimates.js`: estimates, customers, items, settings, rates API.
   `src/http.js`: shared HttpError/wrap. `src/db/defaults.js`: owner's default rates + proposal wording (ensureDefaults).
+- `src/calendar.js`: calendar events (moves, call-backs, site visits) + day notes.
 - `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
   booking confirmation, invoice) as pure text+HTML renderers.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
 - `public/`: `common.js` shared helpers; `index.html` dashboard; `estimates.html` search list; `estimate.html` the
-  Estimate form; `proposal.html?id=&doc=proposal|invoice` printable documents (`print.css`); `settings.html`.
+  Estimate form; `proposal.html?id=&doc=proposal|invoice` printable documents (`print.css`); `settings.html`;
+  `calendar.html` month / week / printable schedule list with day notes.
 
 ## Conventions
 - Money is integer cents; dates `YYYY-MM-DD`; times `HH:MM` 24h. Enums enforced with CHECK constraints.
@@ -87,9 +89,10 @@ for setup, API and import details; this file holds context and decisions.
    booking auto-emails a confirmation (booking still succeeds if email can't go out); Email proposal/confirmation/
    invoice buttons; closeout (actual start/end or hours, final total calculated or typed, tips); payments
    (deposit/payment/refund, last-4 + auth only) with balance due; invoice uses actual hours.
-   Next (owner-agreed order): calendar (call-backs, site visits, moves) + period schedule with daily notes;
-   reports (Activities, Unpaid Moves, Booking Commission); Personnel (pay rate/split %, logins, W-9 status,
-   TAX1099 export); extra stops.
+   Calendar done: month/week/schedule list for any range, moves (tentative while lead/quoted), call-backs (mark
+   done), site visits, day notes (also shown on the dashboard), printable schedule.
+   Next (owner-agreed order): reports (Activities, Unpaid Moves, Booking Commission); Personnel (pay rate/split %,
+   logins, W-9 status, TAX1099 export); extra stops.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).

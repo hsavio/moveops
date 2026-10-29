@@ -244,3 +244,69 @@ tr.inactive td { opacity: .55; }
 .balance .due { color: var(--warn); }
 .balance .paid { color: var(--s-completed); }
 #closeoutCard > button { margin-top: 10px; }
+
+/* ---------------------------------------------------------------- calendar */
+:root { --c-move: var(--s-booked); --c-callback: var(--s-in_progress); --c-visit: var(--s-quoted); }
+.cal-toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.cal-toolbar h1 { font-size: 17px; margin-left: 6px; }
+.cal-nav, .list-range, .cal-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.list-range label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.cal-filters { margin-left: auto; font-size: 13px; }
+.segmented.compact { margin: 0; }
+.segmented.compact span { padding: 5px 14px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.dot.move { background: var(--c-move); } .dot.callback { background: var(--c-callback); } .dot.visit { background: var(--c-visit); }
+.cal-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.cal-layout:has(.day-panel:not([hidden])) { grid-template-columns: minmax(0, 1fr) 320px; }
+.cal-main { padding: 0; overflow: hidden; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-head { padding: 8px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); text-align: center; }
+.cal-cell { min-height: 112px; padding: 4px 5px 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer; min-width: 0; }
+.cal-grid .cal-cell:nth-child(7n) { border-right: 0; }
+.cal-grid.week .cal-cell { min-height: 360px; }
+.cal-cell:hover { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.cal-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-cell.other { background: var(--bg); }
+.cal-cell.other .cal-date { opacity: .5; }
+.cal-cell.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-date { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; padding: 0 2px 2px; }
+.cal-cell.today .cal-date span:first-child { background: var(--accent); color: #fff; border-radius: 99px; padding: 0 7px; }
+.note-flag { color: var(--muted); }
+.chip { display: block; font-size: 11.5px; line-height: 1.35; padding: 1px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; text-decoration: none; color: var(--text); border-left: 3px solid var(--cc);
+  background: color-mix(in srgb, var(--cc) 14%, var(--surface)); }
+.chip.move { --cc: var(--c-move); } .chip.callback { --cc: var(--c-callback); } .chip.visit { --cc: var(--c-visit); }
+.chip.tentative { background: transparent; border: 1px dashed var(--cc); border-left-width: 3px; }
+.chip:hover { filter: brightness(0.95); }
+.more { font-size: 11px; color: var(--muted); padding-left: 4px; }
+.day-panel { position: sticky; top: 70px; display: grid; gap: 10px; }
+.day-panel .card-head { margin-bottom: 0; }
+.day-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.day-list li { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; }
+.day-list .dot { margin-top: 5px; }
+.day-panel .button { justify-content: center; }
+.sched-day { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.sched-day h2 { margin-bottom: 8px; }
+.day-note { background: color-mix(in srgb, var(--warn) 10%, var(--surface)); padding: 6px 10px; border-radius: 6px; margin: 0 0 8px; font-size: 13px; }
+.sched-other { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
+#schedule + .day-note, .card > .day-note { margin-top: 0; }
+
+@media (max-width: 900px) {
+  .cal-layout:has(.day-panel:not([hidden])) { grid-template-columns: 1fr; }
+  .day-panel { position: static; }
+  .cal-filters { margin-left: 0; }
+}
+@media (max-width: 760px) {
+  .cal-cell { min-height: 64px; }
+  .chip { font-size: 0; padding: 0; height: 6px; border-radius: 3px; border-left-width: 0; background: var(--cc); }
+  .chip.tentative { background: transparent; border: 1px dashed var(--cc); }
+  .cal-grid.week .cal-cell { min-height: 120px; }
+}
+@media print {
+  .topbar, .cal-toolbar, .day-panel, .toast { display: none !important; }
+  body { background: #fff; }
+  main { padding: 0; }
+  .card { border: 0; }
+  .sched-day { break-inside: avoid; }
+}

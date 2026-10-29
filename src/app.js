@@ -6,6 +6,7 @@ const { createDistanceService, directionsUrl } = require('./maps');
 const { createMailer } = require('./mailer');
 const { HttpError, wrap, EMAIL_RE, today } = require('./http');
 const { registerEstimateRoutes } = require('./estimates');
+const { registerCalendarRoutes } = require('./calendar');
 
 // Allowed job status transitions. Anything not listed is rejected.
 const TRANSITIONS = {
@@ -119,6 +120,7 @@ function createApp(db, services = {}) {
     const slots = Math.max(3, ...jobs.map((j) => j.crew_number || 0));
     res.json({
       date,
+      note: dayNote(date),
       lanes: Array.from({ length: slots }, (_, i) => ({ slot: i + 1, name: `Crew ${i + 1}`, jobs: jobs.filter((j) => j.crew_number === i + 1) })),
       unassigned: jobs.filter((j) => !j.crew_number),
     });
@@ -132,6 +134,7 @@ function createApp(db, services = {}) {
   });
 
   const { sendDocument } = registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer });
+  const { dayNote } = registerCalendarRoutes(app, db);
 
   app.patch('/api/jobs/:id/status', wrap(async (req, res) => {
     const job = db.prepare('SELECT id, status, move_date, arrival_window_start FROM jobs WHERE id = ?').get(req.params.id);

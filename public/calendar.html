@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Calendar</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a class="active" href="calendar.html">Calendar</a>
+      <a href="estimates.html">Estimates</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="cal-toolbar">
+      <div class="segmented compact" role="radiogroup" aria-label="View">
+        <label><input type="radio" name="view" value="month" checked><span>Month</span></label>
+        <label><input type="radio" name="view" value="week"><span>Week</span></label>
+        <label><input type="radio" name="view" value="list"><span>Schedule</span></label>
+      </div>
+      <div class="cal-nav">
+        <button id="prev" aria-label="Previous">‹</button>
+        <button id="today" class="ghost">Today</button>
+        <button id="next" aria-label="Next">›</button>
+        <h1 id="rangeTitle"></h1>
+      </div>
+      <div class="list-range" hidden>
+        <label>From <input type="date" id="listFrom"></label>
+        <label>To <input type="date" id="listTo"></label>
+        <button id="printList">Print schedule</button>
+      </div>
+      <div class="cal-filters">
+        <label class="inline"><input type="checkbox" data-type="move" checked> <span class="dot move"></span>Moves</label>
+        <label class="inline"><input type="checkbox" data-type="callback" checked> <span class="dot callback"></span>Call-backs</label>
+        <label class="inline"><input type="checkbox" data-type="visit" checked> <span class="dot visit"></span>Site visits</label>
+      </div>
+    </div>
+
+    <div class="cal-layout">
+      <section class="card cal-main" id="calMain" aria-live="polite"></section>
+      <aside class="card day-panel" id="dayPanel" hidden>
+        <div class="card-head"><h2 id="dayTitle"></h2><button class="icon" id="closeDay" aria-label="Close day">✕</button></div>
+        <div id="dayEvents"></div>
+        <label class="stacked">Notes for this day
+          <textarea id="dayNote" rows="4" placeholder="e.g. Truck 2 in the shop until noon"></textarea>
+        </label>
+        <button id="saveNote">Save note</button>
+        <a class="button primary" id="newForDay">+ New estimate</a>
+      </aside>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="calendar.js"></script>
+</body>
+</html>

@@ -337,3 +337,10 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   matched_address  TEXT,
   fetched_at       TEXT NOT NULL
 );
+
+-- Notes for a calendar day ("Daily Information" on the legacy Moves Schedule).
+CREATE TABLE IF NOT EXISTS day_notes (
+  date        TEXT PRIMARY KEY,               -- 'YYYY-MM-DD'
+  notes       TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

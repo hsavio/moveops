@@ -51,7 +51,8 @@ function renderSchedule(s) {
     ? `<div class="unassigned"><span class="warn-text">No crew slot yet:</span>${s.unassigned.map((j) =>
         `<button class="assign-btn" data-assign="${j.id}">${esc(j.job_number)} · ${esc(j.customer_name)}</button>`).join('')}</div>`
     : '';
-  $('#schedule').innerHTML = `<div class="sched-inner" style="--hours:${DAY_HOURS}">
+  $('#schedule').innerHTML = (s.note ? `<p class="day-note">✎ ${esc(s.note)} <a href="calendar.html">Edit in calendar</a></p>` : '')
+    + `<div class="sched-inner" style="--hours:${DAY_HOURS}">
     <div class="axis"><div></div><div class="ticks">${ticks}</div></div>${lanes}</div>${unassigned}`;
   $('#scheduleLabel').textContent = `${s.lanes.reduce((n, l) => n + l.jobs.length, 0) + s.unassigned.length} jobs · trucks are picked at the yard`;
 }

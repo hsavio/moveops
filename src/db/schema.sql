@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS agents (
   business_phone  TEXT,
   alternate_phone TEXT,
   fax             TEXT,
+  email           TEXT,
+  commission_percent REAL NOT NULL DEFAULT 0 CHECK (commission_percent >= 0 AND commission_percent <= 100),
+  active          INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
   legacy_id       TEXT UNIQUE,
   CHECK (coalesce(business_name, last_name) IS NOT NULL)
 );
@@ -206,6 +209,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   final_total_cents       INTEGER,
   final_total_manual      INTEGER NOT NULL DEFAULT 0 CHECK (final_total_manual IN (0,1)),  -- 1 = typed in, not calculated
   tips_cents              INTEGER NOT NULL DEFAULT 0,
+  commission_paid_at      TEXT,                      -- booking commission paid to the agent ('YYYY-MM-DD')
   special_items           TEXT,                      -- piano, safe, gun cabinet...
   notes                   TEXT,                      -- shown to crew / customer
   internal_notes          TEXT,                      -- office only. Never store card numbers here.

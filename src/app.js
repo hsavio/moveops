@@ -7,6 +7,7 @@ const { createMailer } = require('./mailer');
 const { HttpError, wrap, EMAIL_RE, today } = require('./http');
 const { registerEstimateRoutes } = require('./estimates');
 const { registerCalendarRoutes } = require('./calendar');
+const { registerReportRoutes } = require('./reports');
 
 // Allowed job status transitions. Anything not listed is rejected.
 const TRANSITIONS = {
@@ -135,6 +136,7 @@ function createApp(db, services = {}) {
 
   const { sendDocument } = registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer });
   const { dayNote } = registerCalendarRoutes(app, db);
+  registerReportRoutes(app, db);
 
   app.patch('/api/jobs/:id/status', wrap(async (req, res) => {
     const job = db.prepare('SELECT id, status, move_date, arrival_window_start FROM jobs WHERE id = ?').get(req.params.id);
@@ -207,7 +209,7 @@ function createApp(db, services = {}) {
     res.json({
       advertising_sources: db.prepare('SELECT code, label FROM advertising_sources WHERE active = 1 ORDER BY label').all(),
       arrival_windows: db.prepare('SELECT id, label, start_time, end_time FROM arrival_windows WHERE active = 1 ORDER BY end_time IS NULL, start_time').all(),
-      agents: db.prepare(`SELECT id, coalesce(business_name, first_name || ' ' || last_name) AS name FROM agents ORDER BY name`).all(),
+      agents: db.prepare(`SELECT id, coalesce(business_name, first_name || ' ' || last_name) AS name FROM agents WHERE active = 1 ORDER BY name`).all(),
     });
   });
 

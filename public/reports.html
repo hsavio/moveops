@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Reports</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="estimates.html">Estimates</a>
+      <a class="active" href="reports.html">Reports</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+  <main>
+    <div class="report-toolbar">
+      <div class="segmented compact" role="tablist" aria-label="Report">
+        <label><input type="radio" name="report" value="activities" checked><span>Activities</span></label>
+        <label><input type="radio" name="report" value="unpaid"><span>Unpaid moves</span></label>
+        <label><input type="radio" name="report" value="commissions"><span>Booking commission</span></label>
+      </div>
+      <select id="preset" aria-label="Period">
+        <option value="month">This month</option><option value="last_month">Last month</option>
+        <option value="year">This year</option><option value="last_year">Last year</option>
+        <option value="all">All time</option><option value="custom">Custom…</option>
+      </select>
+      <label class="inline small">From <input type="date" id="from"></label>
+      <label class="inline small">To <input type="date" id="to"></label>
+      <label class="inline small commission-only" hidden><input type="checkbox" id="unpaidOnly"> Not paid yet</label>
+      <span class="spacer"></span>
+      <button id="csvBtn">Download CSV</button>
+      <button id="printBtn">Print</button>
+    </div>
+    <section class="card report" id="report" aria-live="polite"></section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>

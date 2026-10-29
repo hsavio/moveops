@@ -21,7 +21,8 @@ Requires Node ≥ 22.13 (uses the built-in `node:sqlite`; no native modules).
 | Estimate (`/estimate.html?id=`) | Customer, phones, dates and follow-up, origin/destination with conditions, hourly / fixed / itemized pricing, other services, additions and discounts, live total, workflow buttons |
 | Proposal / invoice (`/proposal.html?id=&doc=proposal\|invoice`) | Complete plain-paper documents for the office printer |
 | Calendar (`/calendar.html`) | Month / week view and a printable schedule for any date range: moves, call-backs, site visits, notes per day |
-| Settings (`/settings.html`) | Rates (per mover, trip charge, minimum, billing step, crew-size overrides), company details and proposal wording, items catalog |
+| Reports (`/reports.html`) | Activities, Unpaid moves (collections), Booking commission; any period, print or download CSV |
+| Settings (`/settings.html`) | Rates (per mover, trip charge, minimum, billing step, crew-size overrides), company details and proposal wording, agents & commission %, items catalog |
 
 ## Configuration
 
@@ -113,6 +114,11 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/calendar?from=&to=` | Moves, call-backs and site visits in a range (max 120 days) + day notes |
 | PUT | `/api/day-notes/:date` | `{notes}`. Empty text deletes the note |
 | POST | `/api/jobs/:id/callback-done` | Clear a call-back and log it |
+| GET | `/api/reports/activities?from=&to=` | Estimates given, scheduled, cancelled, moved, with totals |
+| GET | `/api/reports/unpaid?from=&to=` | Completed moves with a balance due, days since move, phones |
+| GET | `/api/reports/commissions?from=&to=&agent_id=&unpaid=1` | Commission per agent per move |
+| POST | `/api/jobs/:id/commission-paid` | `{paid, date}` |
+| GET/POST/PUT | `/api/agents`, `/api/agents/:id` | Agents / realtors with commission % (`?all=1` includes inactive) |
 | PUT | `/api/estimates/:id/closeout` | `{actual_start_time, actual_end_time, actual_hours, final_total_cents, tips_cents}` (blank final = calculated) |
 | POST/DELETE | `/api/estimates/:id/payments[/:paymentId]` | `{kind, method, amount_cents, reference, received_at}`. Card numbers are refused |
 | GET | `/api/estimates/:id/email/:kind` | Preview a customer email (`proposal`, `confirmation`, `invoice`) |

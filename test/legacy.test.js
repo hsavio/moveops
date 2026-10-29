@@ -176,3 +176,9 @@ test('Estimates import: header detection, customer de-duplication, idempotent, d
   const sensitiveWarning = first.reports.find((r) => r.table === 'Personnel').warnings.join(' ');
   assert.match(sensitiveWarning, /SocialSecurityNumber/);
 });
+
+test('legacy scheduled dates become booking events for the Activities report', () => {
+  const e = t.estimate(estimateRow({ ScheduledDate: '6/15/2017' }));
+  assert.equal(e.scheduledAt, '2017-06-15');
+  assert.equal(t.estimate(estimateRow({ Status: 'Estimate', ScheduledDate: '6/15/2017', TotalCollected: '0', ClosedTotal: '0' })).scheduledAt, null);
+});

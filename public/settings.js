@@ -96,10 +96,46 @@ $('#itemsTable').addEventListener('click', async (e) => {
 });
 $('#showInactive').addEventListener('change', loadItems);
 
+// ------------------------------------------------------------------ agents
+const AGENT_INPUTS = ['business_name', 'first_name', 'last_name', 'business_phone', 'email', 'commission_percent'];
+async function loadAgents() {
+  const agents = await api(`/api/agents${$('#showInactiveAgents').checked ? '?all=1' : ''}`);
+  $('#agentsTable tbody').innerHTML = agents.map((a) => `<tr data-id="${a.id}" class="${a.active ? '' : 'inactive'}">
+    ${AGENT_INPUTS.map((k) => `<td class="${k === 'commission_percent' ? 'num' : ''}"><input name="${k}" value="${esc(a[k] ?? '')}"
+      ${k === 'commission_percent' ? 'type="number" min="0" max="100" step="0.5"' : ''} aria-label="${k.replace(/_/g, ' ')}"></td>`).join('')}
+    <td><input type="checkbox" name="active" ${a.active ? 'checked' : ''} aria-label="Active"></td>
+    <td><button type="button" class="save-agent">Save</button></td>
+  </tr>`).join('') || '<tr><td colspan="8" class="empty">No agents yet.</td></tr>';
+}
+const agentFrom = (row) => ({
+  ...Object.fromEntries(AGENT_INPUTS.map((k) => [k, $(`[name=${k}]`, row).value])),
+  commission_percent: Number($('[name=commission_percent]', row).value) || 0,
+  active: $('[name=active]', row)?.checked ?? true,
+});
+$('#agentsTable').addEventListener('click', async (e) => {
+  const row = e.target.closest('tr');
+  try {
+    if (e.target.classList.contains('save-agent')) {
+      await api(`/api/agents/${row.dataset.id}`, { method: 'PUT', body: agentFrom(row) });
+      toast('Agent saved');
+      loadAgents();
+    } else if (e.target.id === 'addAgent') {
+      await api('/api/agents', { method: 'POST', body: agentFrom(row) });
+      $$('input', row).forEach((i) => { i.value = ''; });
+      toast('Agent added');
+      loadAgents();
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+$('#showInactiveAgents').addEventListener('change', loadAgents);
+
 (async () => {
   const s = await api('/api/settings');
   card = s.rate_card;
   fillRates();
   for (const [k, v] of Object.entries(s.settings)) if ($('#companyForm').elements.namedItem(k)) $('#companyForm').elements.namedItem(k).value = v ?? '';
   loadItems();
+  loadAgents();
 })();

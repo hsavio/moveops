@@ -179,7 +179,7 @@ const importers = {
     const upsertPayment = db.prepare(`INSERT INTO payments (legacy_id, job_id, kind, method, amount_cents, received_at) VALUES (?, ?, 'payment', ?, ?, ?)
       ON CONFLICT(legacy_id) DO UPDATE SET job_id = excluded.job_id, method = excluded.method, amount_cents = excluded.amount_cents, received_at = excluded.received_at`);
     const clearEvents = db.prepare(`DELETE FROM job_events WHERE job_id = ? AND actor = 'legacy import'`);
-    const insertEvent = db.prepare(`INSERT INTO job_events (job_id, from_status, to_status, note, actor, created_at) VALUES (?, NULL, 'cancelled', 'Cancelled in legacy system', 'legacy import', ?)`);
+    const insertEvent = db.prepare(`INSERT INTO job_events (job_id, from_status, to_status, note, actor, created_at) VALUES (?, NULL, ?, ?, 'legacy import', ?)`);
 
     const customers = new Set();
     let scrubbed = 0;
@@ -203,7 +203,8 @@ const importers = {
       for (const l of e.quoteLines) insertLine.run(jobId, l.code, l.description, l.amount_cents);
       if (e.payment) upsertPayment.run(e.payment.legacy_id, jobId, e.payment.method, e.payment.amount_cents, e.payment.received_at);
       clearEvents.run(jobId);
-      if (e.cancelledAt) insertEvent.run(jobId, `${e.cancelledAt}T00:00:00.000Z`);
+      if (e.scheduledAt) insertEvent.run(jobId, 'booked', 'Scheduled in legacy system', `${e.scheduledAt}T00:00:00.000Z`);
+      if (e.cancelledAt) insertEvent.run(jobId, 'cancelled', 'Cancelled in legacy system', `${e.cancelledAt}T00:00:00.000Z`);
       if (e.sensitiveRemoved) scrubbed++;
       report.imported++;
     }

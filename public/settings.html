@@ -13,6 +13,7 @@
       <a href="index.html">Dashboard</a>
       <a href="calendar.html">Calendar</a>
       <a href="estimates.html">Estimates</a>
+      <a href="reports.html">Reports</a>
       <a class="active" href="settings.html">Settings</a>
     </nav>
   </header>
@@ -60,6 +61,28 @@
         </div>
         <button class="primary">Save company details</button>
       </form>
+    </section>
+
+    <section class="card span-all">
+      <div class="card-head"><h2>Agents &amp; realtors</h2>
+        <label class="inline small"><input type="checkbox" id="showInactiveAgents"> Show inactive</label></div>
+      <p class="muted small">People who refer moves to you. Their commission % is used on the Booking Commission report.</p>
+      <div class="table-wrap">
+        <table class="lines" id="agentsTable">
+          <thead><tr><th>Business</th><th>First name</th><th>Last name</th><th>Phone</th><th>Email</th><th class="num">Commission %</th><th>Active</th><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr>
+            <td><input name="business_name" placeholder="New agent" aria-label="New agent business"></td>
+            <td><input name="first_name" aria-label="First name"></td>
+            <td><input name="last_name" aria-label="Last name"></td>
+            <td><input type="tel" name="business_phone" aria-label="Phone"></td>
+            <td><input type="email" name="email" aria-label="Email"></td>
+            <td class="num"><input type="number" min="0" max="100" step="0.5" name="commission_percent" aria-label="Commission percent"></td>
+            <td></td>
+            <td><button type="button" id="addAgent">Add</button></td>
+          </tr></tfoot>
+        </table>
+      </div>
     </section>
 
     <section class="card span-all">

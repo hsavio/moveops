@@ -331,6 +331,7 @@ function estimate(row, ctx = { ignored: new Set(), placeholderPhones: new Set() 
       received_at: `${moveDate || estimateDate}T00:00:00.000Z`,
     } : null,
     cancelledAt: status === 'cancelled' ? usDate(row.CancelledDate) : null,
+    scheduledAt: status !== 'quoted' ? usDate(row.ScheduledDate) : null,
     sensitiveRemoved: pub.removed + priv.removed,
   };
 }

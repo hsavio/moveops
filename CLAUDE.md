@@ -46,8 +46,31 @@ for setup, API and import details; this file holds context and decisions.
 - When profiling legacy files, show only column names, counts and value shapes; redact free text by default.
 - `internal_notes` never leave the office (excluded from crew emails; covered by a test).
 
+## Requirements from the owner's legacy screenshots (Oct 2026)
+- Business: All The Right Moves, 110 FM 1488 Rd, Conroe TX 77384, (281) 785-9900, DOT# 006038868C.
+  Put company details in settings, not hard-coded. Estimate numbers are ~11,5xx in the live system.
+- **Current rates differ from 2017**: Oct 2026 invoice shows 3 movers $200/h, trip charge $150, plus a
+  "rollout charge" line. Owner to confirm full rate list; the 2017 rate card is stale.
+- Pricing methods: **hourly**, **fixed**, **itemized** (prices from the legacy Items table, not yet exported).
+  Proposal has "Not To Exceed" / "Binding" estimate types (meaning to confirm with owner).
+- Workflow: Lead → Site visit/"visual" (optional) → Quote → Accepted (date + arrival time, auto-emails a
+  confirmation) → Crew dispatched → Moved → Collected → Call-back (if needed) → Crew paid.
+- Proposal (customer-facing, print/email): company header, estimate/invoice no., move date, arrival time,
+  origin/dest with stairs/walks/elevator, phones (home/work/cell/new/fax), notes, estimate type, items/services,
+  hourly block (start/end/total time × rate + rollout + trip = total, "includes N movers", initials line),
+  3 "Other Services" lines (legacy AdministrativeDescription1-3), terms: 3% credit card fee, C.O.D.,
+  cancel within 72 h or $100 fee. Legacy invoice prints field values onto pre-printed stock (owner to confirm).
+- Personnel: ID, name, address, phones, driver's licence, SSN, status, start/end date, available as mover,
+  hourly pay rate **or split %**, salesperson flag, system access (username/password/privileges).
+  Owner says SSN is needed for tax filings: decision pending (A: payroll provider holds SSNs, app exports pay
+  summary [recommended]; B: encrypted, admin-only, masked, audited). Until decided, do not store SSNs.
+- Reports: Activities (estimates/scheduled/cancelled/moved in a date range, with totals); Unpaid Moves
+  (collections: closed total − payments, days since move, phones); Booking Commission (owed to realtors/agents).
+- "At a Glance" (callbacks, visuals, moves) should become a calendar.
+
 ## Open items / next steps
-1. Customers and Jobs screens (create/edit jobs, save quotes as quote_lines).
+1. Customers and Jobs screens (create/edit jobs, save quotes as quote_lines). Waiting on the owner's
+   Estimates form screenshot (did not arrive) and Moves Schedule screenshot.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).

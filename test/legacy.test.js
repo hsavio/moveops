@@ -114,13 +114,14 @@ const estimateRow = (over = {}) => ({
 test('an Estimates row becomes customer, addresses, job, quote lines and payment', () => {
   const e = t.estimate(estimateRow(), { ignored: new Set(), placeholderPhones: new Set(['0000000000']) });
   assert.equal(e.customer.phone, '(281) 555-0100');
-  assert.equal(e.customer.alt_phone, null);                    // placeholder phone dropped
+  assert.equal(e.customer.cell_phone, null);                   // placeholder phone dropped
+  assert.equal(e.job.job_number, '6805');                      // same number as the legacy paperwork
   assert.equal(e.origin.line2, 'Apt 12');
   assert.deepEqual([e.origin.stair_flights, e.origin.long_walks], [1, 1]);
   assert.equal(e.destination, null);                           // no destination entered
   assert.equal(e.job.status, 'completed');                     // Scheduled + money collected
   assert.deepEqual([e.job.arrival_window_start, e.job.arrival_window_end, e.job.est_hours], ['08:00', '09:00', 4]);
-  assert.deepEqual([e.job.hourly_rate_cents, e.job.trip_charge_cents, e.job.adjustment_cents], [14500, 4500, -10000]);
+  assert.deepEqual([e.job.hourly_rate_cents, e.job.trip_charge_cents, e.job.move_addition_cents, e.job.minimum_hours], [14500, 4500, -10000, 2]);
   assert.deepEqual(e.quoteLines.map((l) => l.amount_cents), [29000, 4500]); // 2h x $145 + $45 = $335
   assert.equal(e.payment.amount_cents, 48000);
   assert.equal(e.job.internal_notes, '[removed: payment card details]');
@@ -168,10 +169,10 @@ test('Estimates import: header detection, customer de-duplication, idempotent, d
   assert.equal(count("SELECT count(*) n FROM jobs WHERE internal_notes LIKE '%4111%'"), 0);
   assert.equal(count('SELECT count(*) n FROM crew_members'), 1);
   assert.equal(count("SELECT count(*) n FROM jobs WHERE quoted_total_cents = 33500"), 25);
+  // Imports never touch rates: the owner's defaults ($75/h per mover, $150 trip) stay in place.
   const card = db.prepare('SELECT * FROM rate_cards').get();
-  assert.deepEqual([card.travel_fee_cents, card.minimum_hours], [4500, 2]);
-  assert.equal(db.prepare('SELECT hourly_cents FROM rate_card_crew_rates WHERE crew_size = 3').get().hourly_cents, 14500);
-  assert.equal(count('SELECT count(*) n FROM rate_cards'), 1); // not re-created on the second run
+  assert.deepEqual([card.per_mover_hourly_cents, card.travel_fee_cents], [7500, 15000]);
+  assert.equal(count('SELECT count(*) n FROM rate_cards'), 1);
   const sensitiveWarning = first.reports.find((r) => r.table === 'Personnel').warnings.join(' ');
   assert.match(sensitiveWarning, /SocialSecurityNumber/);
 });

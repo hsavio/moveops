@@ -154,8 +154,9 @@ const importers = {
 
     const adSource = db.prepare('SELECT code FROM advertising_sources WHERE legacy_value = ? OR code = ?');
     const findCustomer = db.prepare('SELECT id FROM customers WHERE legacy_id = ?');
-    const insertCustomer = db.prepare(`INSERT INTO customers (legacy_id, kind, first_name, last_name, company_name, phone, alt_phone, advertising_source, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, coalesce(?, strftime('%Y-%m-%dT%H:%M:%fZ','now')))`);
+    const insertCustomer = db.prepare(`INSERT INTO customers (legacy_id, kind, first_name, last_name, company_name, phone, cell_phone,
+        work_phone, work_ext, new_phone, fax, email, advertising_source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, coalesce(?, strftime('%Y-%m-%dT%H:%M:%fZ','now')))`);
     const upsertAddress = db.prepare(`INSERT INTO addresses (legacy_id, customer_id, line1, line2, city, state, postal_code, floor, stair_flights,
         has_elevator, long_walks, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(legacy_id) DO UPDATE SET customer_id = excluded.customer_id, line1 = excluded.line1, line2 = excluded.line2,
@@ -165,7 +166,9 @@ const importers = {
       RETURNING id`);
     const jobCols = ['legacy_id', 'job_number', 'customer_id', 'origin_address_id', 'destination_address_id', 'status', 'move_date',
       'arrival_window_start', 'arrival_window_end', 'est_hours', 'crew_size', 'crew_number', 'distance_miles', 'pricing_method',
-      'hourly_rate_cents', 'trip_charge_cents', 'discount_cents', 'adjustment_cents', 'quoted_total_cents', 'final_total_cents',
+      'hourly_rate_cents', 'trip_charge_cents', 'minimum_hours', 'discount_cents', 'discount_percent', 'move_addition_cents',
+      'move_addition_percent', 'sales_addition_cents', 'sales_addition_percent', 'callback_date', 'po_number',
+      'quoted_total_cents', 'final_total_cents',
       'tips_cents', 'notes', 'internal_notes', 'created_at'];
     const upsertJob = db.prepare(`INSERT INTO jobs (${jobCols.join(', ')}) VALUES (${jobCols.map(() => '?').join(', ')})
       ON CONFLICT(legacy_id) DO UPDATE SET ${jobCols.filter((c) => c !== 'legacy_id').map((c) => `${c} = excluded.${c}`).join(', ')},
@@ -187,7 +190,8 @@ const importers = {
       let customer = findCustomer.get(c.legacy_id);
       if (!customer) {
         const source = c.legacy_referral ? adSource.get(c.legacy_referral, t.advertisingSource(c.legacy_referral)?.code)?.code ?? null : null;
-        customer = { id: insertCustomer.run(c.legacy_id, c.kind, c.first_name, c.last_name, c.company_name, c.phone, c.alt_phone, source,
+        customer = { id: insertCustomer.run(c.legacy_id, c.kind, c.first_name, c.last_name, c.company_name, c.phone, c.cell_phone,
+          c.work_phone, c.work_ext, c.new_phone, c.fax, c.email, source,
           c.created_at ? `${c.created_at}T00:00:00.000Z` : null).lastInsertRowid };
       }
       customers.add(customer.id);
@@ -205,41 +209,11 @@ const importers = {
     }
     report.warnings.push(`${customers.size} customers from ${report.imported} estimates.`);
     if (scrubbed) report.warnings.push(`Removed payment card / SSN details from the notes of ${scrubbed} estimate(s). Purge them from the legacy database too.`);
-    inferRateCard(db, rows, report);
     const relevant = ['Referral', 'PaymentMethod', 'Employee'].filter((k) => ignored.has(k));
     if (relevant.length) report.warnings.push(`Ignored ${relevant.join(', ')}: same value on every row, so it is a program default, not data.`);
     if (placeholderPhones.size) report.warnings.push(`Ignored ${placeholderPhones.size} placeholder phone number(s) shared across many customers.`);
   },
 };
-
-// With no rate card yet, derive one from the legacy hourly estimates: the most common rate per
-// crew size, trip charge and minimum hours. Mileage, stairs and long walks were not charged.
-function inferRateCard(db, rows, report) {
-  if (db.prepare('SELECT count(*) AS n FROM rate_cards').get().n) return;
-  const hourly = rows.filter((r) => /^hourly$/i.test(r.PricingMethod) && t.moneyCents(r.HourlyRate) > 0);
-  if (!hourly.length) return;
-  const mode = (values) => {
-    const counts = new Map();
-    for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1])[0][0];
-  };
-  const bySize = new Map();
-  for (const r of hourly) {
-    const size = Number(r.NumberOfMen);
-    if (size > 0) (bySize.get(size) ?? bySize.set(size, []).get(size)).push(t.moneyCents(r.HourlyRate));
-  }
-  const crewRates = [...bySize].map(([size, rates]) => [size, mode(rates)]).sort((a, b) => a[0] - b[0]);
-  const [baseSize, baseRate] = crewRates[0];
-  const perMover = Math.round(baseRate / baseSize);
-  const dates = rows.map((r) => t.usDate(r.EstimateDate)).filter(Boolean).sort();
-  const cardId = db.prepare(`INSERT INTO rate_cards (name, effective_from, base_crew_size, base_hourly_cents, extra_mover_hourly_cents,
-      extra_truck_hourly_cents, minimum_hours, billing_increment_min, travel_fee_cents)
-    VALUES (?, ?, ?, ?, ?, 0, ?, 15, ?)`).run('Imported from legacy estimates', dates[0] || '2000-01-01', baseSize, baseRate, perMover,
-    mode(hourly.map((r) => Number(r.MinimumHours) || 2)), mode(hourly.map((r) => t.moneyCents(r.TripCharge) || 0))).lastInsertRowid;
-  const insert = db.prepare('INSERT INTO rate_card_crew_rates (rate_card_id, crew_size, hourly_cents) VALUES (?, ?, ?)');
-  for (const [size, cents] of crewRates) insert.run(cardId, size, cents);
-  report.warnings.push(`Created rate card from legacy estimates: ${crewRates.map(([n, c]) => `${n} movers $${c / 100}/h`).join(', ')}. Review before launch.`);
-}
 
 // Dependency order: lookups first, then rows that reference them.
 const ORDER = ['AdvertisingCodes', 'ArrivalTimes', 'Cities', 'Agents', 'Personnel', 'Adjustments', 'Estimates'];

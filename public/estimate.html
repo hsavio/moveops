@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Estimate</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a class="active" href="estimates.html">Estimates</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <div class="actionbar">
+    <div class="actionbar-title">
+      <h1 id="title">New estimate</h1>
+      <span class="pill" id="statusPill" hidden></span>
+      <span class="muted" id="dirtyNote" hidden>Unsaved changes</span>
+    </div>
+    <div class="actionbar-buttons">
+      <span id="workflow"></span>
+      <a class="button" id="printBtn" target="_blank" hidden>Print proposal</a>
+      <a class="button" id="invoiceBtn" target="_blank" hidden>Print invoice</a>
+      <button class="primary" id="saveBtn" form="estForm">Save</button>
+    </div>
+  </div>
+
+  <main>
+    <p class="error banner" id="formError" role="alert" hidden></p>
+    <form id="estForm" class="est-grid" novalidate autocomplete="off">
+      <!-- ============================== column 1: customer + dates -->
+      <div class="est-col">
+        <section class="card">
+          <div class="card-head"><h2>Customer</h2><span class="muted" id="customerLink"></span></div>
+          <div class="customer-find" id="customerFind">
+            <label>Find an existing customer
+              <input type="search" id="customerSearch" placeholder="Name, phone or email">
+            </label>
+            <ul class="suggest" id="customerResults" role="listbox" hidden></ul>
+          </div>
+          <input type="hidden" name="customer.id">
+          <div class="fields two">
+            <label>First name <input name="customer.first_name"></label>
+            <label>Last name <input name="customer.last_name"></label>
+            <label class="span2">Company <input name="customer.company_name"></label>
+            <label class="span2">Email <input type="email" name="customer.email"></label>
+            <label>Type
+              <select name="customer.kind"><option value="residential">Residential</option><option value="commercial">Commercial</option></select>
+            </label>
+            <label>Referral <select name="customer.advertising_source" id="sourceSelect"><option value="">—</option></select></label>
+          </div>
+          <h3>Phone numbers</h3>
+          <div class="fields two">
+            <label>Home <input type="tel" name="customer.phone"></label>
+            <label>Cell <input type="tel" name="customer.cell_phone"></label>
+            <label>Work <input type="tel" name="customer.work_phone"></label>
+            <label>Ext. <input name="customer.work_ext"></label>
+            <label>New number <input type="tel" name="customer.new_phone"></label>
+            <label>Fax <input type="tel" name="customer.fax"></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Dates &amp; follow-up</h2>
+          <div class="fields two">
+            <label>Estimate date <input id="estDate" readonly tabindex="-1"></label>
+            <label>Move date <input type="date" name="job.move_date"></label>
+            <label class="span2">Arrival time
+              <select id="arrivalSelect"><option value="">Not set</option></select>
+            </label>
+            <label class="custom-time">From <input type="time" name="job.arrival_window_start" step="900"></label>
+            <label class="custom-time">To <input type="time" name="job.arrival_window_end" step="900"></label>
+            <label>Call back on <input type="date" name="job.callback_date"></label>
+            <label>Site visit <input type="datetime-local" name="job.site_visit_at" step="900"></label>
+            <label>Agent / realtor <select name="job.agent_id" id="agentSelect"><option value="">—</option></select></label>
+            <label>Sales rep <select name="job.sales_rep_id" id="repSelect"><option value="">—</option></select></label>
+            <label class="span2">PO number <input name="job.po_number"></label>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================== column 2: addresses + notes -->
+      <div class="est-col">
+        <section class="card address" data-prefix="origin">
+          <h2>Origin</h2>
+          <label class="saved-list" hidden>Saved addresses <select class="saved-select"></select></label>
+          <input type="hidden" name="origin.id">
+          <div class="fields two">
+            <label class="span2">Description <input name="origin.description" placeholder="e.g. 3 bedroom house, storage unit 5x10"></label>
+            <label class="span2">Address <input name="origin.line1"></label>
+            <label class="span2">Apt / unit <input name="origin.line2"></label>
+            <label>City <input name="origin.city"></label>
+            <div class="fields two tight">
+              <label>State <input name="origin.state" maxlength="2"></label>
+              <label>ZIP <input name="origin.postal_code" inputmode="numeric" maxlength="10"></label>
+            </div>
+          </div>
+          <div class="fields three conditions">
+            <label>Flights of stairs <input type="number" min="0" name="origin.stair_flights" value="0"></label>
+            <label>Long walks <input type="number" min="0" name="origin.long_walks" value="0"></label>
+            <label>Elevator floors <input type="number" min="0" name="origin.elevator_floors" value="0"></label>
+          </div>
+        </section>
+
+        <section class="card address" data-prefix="destination">
+          <h2>Destination</h2>
+          <label class="saved-list" hidden>Saved addresses <select class="saved-select"></select></label>
+          <input type="hidden" name="destination.id">
+          <div class="fields two">
+            <label class="span2">Description <input name="destination.description"></label>
+            <label class="span2">Address <input name="destination.line1"></label>
+            <label class="span2">Apt / unit <input name="destination.line2"></label>
+            <label>City <input name="destination.city"></label>
+            <div class="fields two tight">
+              <label>State <input name="destination.state" maxlength="2"></label>
+              <label>ZIP <input name="destination.postal_code" inputmode="numeric" maxlength="10"></label>
+            </div>
+          </div>
+          <div class="fields three conditions">
+            <label>Flights of stairs <input type="number" min="0" name="destination.stair_flights" value="0"></label>
+            <label>Long walks <input type="number" min="0" name="destination.long_walks" value="0"></label>
+            <label>Elevator floors <input type="number" min="0" name="destination.elevator_floors" value="0"></label>
+          </div>
+          <div class="distance-row">
+            <label>Distance (mi) <input type="number" min="0" step="0.1" name="job.distance_miles"></label>
+            <button type="button" id="distanceBtn">Estimate distance</button>
+          </div>
+          <p class="muted small" id="distanceNote"></p>
+        </section>
+
+        <section class="card">
+          <h2>Notes</h2>
+          <label class="stacked">Shown on proposals and invoices
+            <textarea name="job.notes" rows="3"></textarea>
+          </label>
+          <label class="stacked">Office only (never printed or sent)
+            <textarea name="job.internal_notes" rows="3"></textarea>
+          </label>
+          <label class="stacked">Special items <input name="job.special_items" placeholder="Piano, safe, pool table…"></label>
+          <p class="muted small">Never type card numbers here. Record payments with the last 4 digits only.</p>
+        </section>
+      </div>
+
+      <!-- ============================== column 3: pricing -->
+      <div class="est-col">
+        <section class="card">
+          <h2>Pricing</h2>
+          <div class="segmented" role="radiogroup" aria-label="Pricing method">
+            <label><input type="radio" name="job.pricing_method" value="hourly" checked><span>Hourly</span></label>
+            <label><input type="radio" name="job.pricing_method" value="fixed"><span>Fixed price</span></label>
+            <label><input type="radio" name="job.pricing_method" value="itemized"><span>Itemized</span></label>
+          </div>
+          <div class="fields two">
+            <label class="span2">Estimate type
+              <select name="job.estimate_type">
+                <option value="standard">Standard (bill actual hours)</option>
+                <option value="binding">Binding (guaranteed price)</option>
+                <option value="not_to_exceed">Not to exceed (hourly, capped)</option>
+              </select>
+            </label>
+            <label class="span2 nte-only">Not to exceed ($) <input class="money" name="job.not_to_exceed_cents" inputmode="decimal"></label>
+          </div>
+
+          <div class="method-block" data-method="hourly">
+            <div class="fields two">
+              <label>Movers <input type="number" min="1" max="20" name="job.crew_size" value="2"></label>
+              <label>Rate / hour ($)
+                <input class="money" name="job.hourly_rate_cents" inputmode="decimal">
+                <small class="muted" id="rateHint"></small>
+              </label>
+              <label>Est. hours <input type="number" min="0" step="0.25" name="job.est_hours"></label>
+              <label>Minimum hours <input type="number" min="0" step="0.25" name="job.minimum_hours"></label>
+              <label class="span2">Trip charge ($) <input class="money" name="job.trip_charge_cents" inputmode="decimal"></label>
+            </div>
+          </div>
+          <div class="method-block" data-method="fixed" hidden>
+            <div class="fields two">
+              <label class="span2">Fixed price ($) <input class="money" name="job.fixed_price_cents" inputmode="decimal"></label>
+              <label>Movers <input type="number" min="1" max="20" data-mirror="job.crew_size"></label>
+            </div>
+          </div>
+          <div class="method-block" data-method="itemized" hidden>
+            <div class="item-add">
+              <select id="itemPick" aria-label="Item"><option value="">Add an item…</option></select>
+              <input type="number" id="itemQty" min="1" value="1" aria-label="Quantity">
+              <button type="button" id="itemAdd">Add</button>
+            </div>
+            <table class="lines" id="itemTable">
+              <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Each</th><th class="num">Total</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <p class="muted small" id="itemTotals"></p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>Other services</h2><button type="button" id="serviceAdd">+ Add</button></div>
+          <table class="lines" id="serviceTable">
+            <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Price ($)</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="card">
+          <h2>Additions &amp; discounts</h2>
+          <div class="fields adj">
+            <span></span><span class="muted small">%</span><span class="muted small">$</span>
+            <span>Move additions</span><input type="number" min="0" max="100" step="0.5" name="job.move_addition_percent" aria-label="Move additions percent"><input class="money" name="job.move_addition_cents" aria-label="Move additions amount">
+            <span>Sales additions</span><input type="number" min="0" max="100" step="0.5" name="job.sales_addition_percent" aria-label="Sales additions percent"><input class="money" name="job.sales_addition_cents" aria-label="Sales additions amount">
+            <span>Discount</span><input type="number" min="0" max="100" step="0.5" name="job.discount_percent" aria-label="Discount percent"><input class="money" name="job.discount_cents" aria-label="Discount amount">
+          </div>
+        </section>
+
+        <section class="card totals" aria-live="polite">
+          <h2>Total</h2>
+          <div id="priceLines"></div>
+          <p class="error small" id="priceProblem"></p>
+        </section>
+
+        <section class="card" id="historyCard" hidden>
+          <h2>History</h2>
+          <ul class="history" id="history"></ul>
+        </section>
+      </div>
+    </form>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="estimate.js"></script>
+</body>
+</html>

@@ -12,9 +12,13 @@ for setup, API and import details; this file holds context and decisions.
 
 ## Layout
 - `src/db/schema.sql`: whole schema; no migrations yet (DB is recreated). Add a migration step before launch.
-- `src/pricing.js`: pure pricing engine. `src/app.js`: API. `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP.
+- `src/pricing.js`: pure pricing (`priceJob` for saved estimates, `calculateQuote` for the dashboard calculator).
+- `src/app.js`: dashboard/dispatch API. `src/estimates.js`: estimates, customers, items, settings, rates API.
+  `src/http.js`: shared HttpError/wrap. `src/db/defaults.js`: owner's default rates + proposal wording (ensureDefaults).
+- `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
-- `public/`: dashboard (KPIs, crew-slot schedule, dispatch grid, pricing calculator, assign + directions dialogs).
+- `public/`: `common.js` shared helpers; `index.html` dashboard; `estimates.html` search list; `estimate.html` the
+  Estimate form; `proposal.html?id=&doc=proposal|invoice` printable documents (`print.css`); `settings.html`.
 
 ## Conventions
 - Money is integer cents; dates `YYYY-MM-DD`; times `HH:MM` 24h. Enums enforced with CHECK constraints.
@@ -46,31 +50,42 @@ for setup, API and import details; this file holds context and decisions.
 - When profiling legacy files, show only column names, counts and value shapes; redact free text by default.
 - `internal_notes` never leave the office (excluded from crew emails; covered by a test).
 
+- **Rates (Oct 2026):** default $75/h **per mover** (crew rate = movers × rate) and $150 trip charge; editable in
+  Settings, optional per-crew-size overrides. Saving creates a version dated today; estimates keep their own rates.
+- **No rollout charge** (owner: nobody uses it). Don't add it back.
+- **Binding** = guaranteed price: fixed and itemized estimates are always binding. **Not to exceed** = hourly with a cap.
+  Hourly "standard" bills actual hours.
+- Both % and flat discounts apply (the legacy app ignored the flat one; owner accepted the fix).
+- **Printing:** complete documents on plain paper from the office printer. No pre-printed stock overlays.
+- **SSNs:** not stored in MoveOps. Owner files 1099s via TAX1099.com and does payroll in-house; MoveOps should track
+  each worker's tax-form status and export yearly pay totals for TAX1099. (Contractors give a W-9; owner said "W-4".)
+- **Payments:** never store card number/expiry/CVV (the legacy Payment Information box did). Method, amount,
+  last 4 and auth code only. Notes fields reject text that looks like a card number or SSN.
+- Estimate numbers: imported legacy estimates keep their number (e.g. 11541); new ones continue from the highest.
+
 ## Requirements from the owner's legacy screenshots (Oct 2026)
 - Business: All The Right Moves, 110 FM 1488 Rd, Conroe TX 77384, (281) 785-9900, DOT# 006038868C.
   Put company details in settings, not hard-coded. Estimate numbers are ~11,5xx in the live system.
-- **Current rates differ from 2017**: Oct 2026 invoice shows 3 movers $200/h, trip charge $150, plus a
-  "rollout charge" line. Owner to confirm full rate list; the 2017 rate card is stale.
-- Pricing methods: **hourly**, **fixed**, **itemized** (prices from the legacy Items table, not yet exported).
-  Proposal has "Not To Exceed" / "Binding" estimate types (meaning to confirm with owner).
+- Pricing methods: **hourly**, **fixed**, **itemized** (catalog in `items`; legacy Items table not yet exported).
 - Workflow: Lead → Site visit/"visual" (optional) → Quote → Accepted (date + arrival time, auto-emails a
   confirmation) → Crew dispatched → Moved → Collected → Call-back (if needed) → Crew paid.
 - Proposal (customer-facing, print/email): company header, estimate/invoice no., move date, arrival time,
   origin/dest with stairs/walks/elevator, phones (home/work/cell/new/fax), notes, estimate type, items/services,
   hourly block (start/end/total time × rate + rollout + trip = total, "includes N movers", initials line),
   3 "Other Services" lines (legacy AdministrativeDescription1-3), terms: 3% credit card fee, C.O.D.,
-  cancel within 72 h or $100 fee. Legacy invoice prints field values onto pre-printed stock (owner to confirm).
+  cancel within 72 h or $100 fee.
 - Personnel: ID, name, address, phones, driver's licence, SSN, status, start/end date, available as mover,
-  hourly pay rate **or split %**, salesperson flag, system access (username/password/privileges).
-  Owner says SSN is needed for tax filings: decision pending (A: payroll provider holds SSNs, app exports pay
-  summary [recommended]; B: encrypted, admin-only, masked, audited). Until decided, do not store SSNs.
+  hourly pay rate **or split %**, salesperson flag, system access (username/password/privileges). SSN: see decisions.
 - Reports: Activities (estimates/scheduled/cancelled/moved in a date range, with totals); Unpaid Moves
   (collections: closed total − payments, days since move, phones); Booking Commission (owed to realtors/agents).
 - "At a Glance" (callbacks, visuals, moves) should become a calendar.
+- Moves Schedule: show moves for a selectable period (not just one day), with per-day notes ("Daily Information").
 
 ## Open items / next steps
-1. Customers and Jobs screens (create/edit jobs, save quotes as quote_lines). Waiting on the owner's
-   Estimates form screenshot (did not arrive) and Moves Schedule screenshot.
+1. Done: Estimate form, estimate search, printable proposal/invoice, Settings (rates, company, items).
+   Next: confirmation email on booking; closeout (actual hours, final total, payments, tips) feeding the invoice;
+   calendar (call-backs, site visits, moves) + period schedule with daily notes; reports (Activities, Unpaid Moves,
+   Booking Commission); Personnel (pay rate/split %, logins, W-9 status, TAX1099 export); extra stops.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).

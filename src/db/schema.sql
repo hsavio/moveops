@@ -63,8 +63,12 @@ CREATE TABLE IF NOT EXISTS customers (
   first_name    TEXT,
   last_name     TEXT,
   company_name  TEXT,
-  phone         TEXT,
-  alt_phone     TEXT,
+  phone         TEXT,                  -- home / main number
+  cell_phone    TEXT,
+  work_phone    TEXT,
+  work_ext      TEXT,
+  new_phone     TEXT,                  -- number at the new address
+  fax           TEXT,
   email         TEXT,
   advertising_source TEXT REFERENCES advertising_sources(code),  -- how they heard about us
   notes         TEXT,
@@ -106,6 +110,7 @@ CREATE TABLE IF NOT EXISTS crew_members (
   role          TEXT NOT NULL DEFAULT 'mover' CHECK (role IN ('mover','driver','lead')),
   phone         TEXT,
   email         TEXT,                          -- where job directions are sent
+  is_salesperson INTEGER NOT NULL DEFAULT 0 CHECK (is_salesperson IN (0,1)),
   wage_cents    INTEGER NOT NULL DEFAULT 0,   -- hourly, for job costing
   active        INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
   legacy_id     TEXT UNIQUE
@@ -128,10 +133,8 @@ CREATE TABLE IF NOT EXISTS rate_cards (
   id                        INTEGER PRIMARY KEY,
   name                      TEXT NOT NULL,
   effective_from            TEXT NOT NULL,            -- 'YYYY-MM-DD'
-  base_crew_size            INTEGER NOT NULL DEFAULT 2,
-  base_hourly_cents         INTEGER NOT NULL,         -- rate for base crew + 1 truck
-  extra_mover_hourly_cents  INTEGER NOT NULL,
-  extra_truck_hourly_cents  INTEGER NOT NULL,
+  per_mover_hourly_cents    INTEGER NOT NULL,         -- crew rate = movers x this (unless overridden below)
+  extra_truck_hourly_cents  INTEGER NOT NULL DEFAULT 0,
   minimum_hours             REAL    NOT NULL DEFAULT 2,
   billing_increment_min     INTEGER NOT NULL DEFAULT 15,
   travel_fee_cents          INTEGER NOT NULL DEFAULT 0,   -- flat "trip charge"
@@ -146,8 +149,8 @@ CREATE TABLE IF NOT EXISTS rate_cards (
   active                    INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))
 );
 
--- Hourly rate by crew size. The legacy rates were not linear (2 men $99, 3 men $145, 4 men $198),
--- so explicit rows win; sizes without a row fall back to base + extra-mover pricing.
+-- Optional hourly rate for a specific crew size, overriding movers x per-mover rate.
+-- (The 2017 legacy rates were not linear: 2 men $99, 3 men $145, 4 men $198.)
 CREATE TABLE IF NOT EXISTS rate_card_crew_rates (
   rate_card_id  INTEGER NOT NULL REFERENCES rate_cards(id) ON DELETE CASCADE,
   crew_size     INTEGER NOT NULL CHECK (crew_size > 0),
@@ -174,12 +177,27 @@ CREATE TABLE IF NOT EXISTS jobs (
   distance_miles          REAL,
   rate_card_id            INTEGER REFERENCES rate_cards(id),
   agent_id                INTEGER REFERENCES agents(id),
+  sales_rep_id            INTEGER REFERENCES crew_members(id),
+  callback_date           TEXT,                      -- follow-up call due ('YYYY-MM-DD')
+  site_visit_at           TEXT,                      -- in-home estimate / "visual" ('YYYY-MM-DDTHH:MM')
+  po_number               TEXT,
   -- Agreed terms. Stored on the job because dispatchers override the rate card per job.
-  pricing_method          TEXT NOT NULL DEFAULT 'hourly' CHECK (pricing_method IN ('hourly','itemized','weight')),
+  -- weight is legacy-only (one 2017 estimate); new estimates use hourly, fixed or itemized.
+  pricing_method          TEXT NOT NULL DEFAULT 'hourly' CHECK (pricing_method IN ('hourly','fixed','itemized','weight')),
+  -- standard: hourly, billed on actual time. binding: guaranteed price (fixed or itemized).
+  -- not_to_exceed: hourly, billed on actual time but capped at not_to_exceed_cents.
+  estimate_type           TEXT NOT NULL DEFAULT 'standard' CHECK (estimate_type IN ('standard','binding','not_to_exceed')),
+  not_to_exceed_cents     INTEGER,
+  minimum_hours           REAL,
   hourly_rate_cents       INTEGER,
   trip_charge_cents       INTEGER,
+  fixed_price_cents       INTEGER,
+  move_addition_percent   REAL NOT NULL DEFAULT 0,
+  move_addition_cents     INTEGER NOT NULL DEFAULT 0,
+  sales_addition_percent  REAL NOT NULL DEFAULT 0,
+  sales_addition_cents    INTEGER NOT NULL DEFAULT 0,
+  discount_percent        REAL NOT NULL DEFAULT 0,
   discount_cents          INTEGER NOT NULL DEFAULT 0,
-  adjustment_cents        INTEGER NOT NULL DEFAULT 0,   -- manual +/- on the total
   quoted_total_cents      INTEGER,
   actual_hours            REAL,
   final_total_cents       INTEGER,
@@ -195,7 +213,49 @@ CREATE INDEX IF NOT EXISTS idx_jobs_date     ON jobs(move_date);
 CREATE INDEX IF NOT EXISTS idx_jobs_status   ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_customer ON jobs(customer_id);
 
--- Quote line items: an itemised, immutable snapshot of what the calculator produced.
+-- Itemized pricing: items on a job, copied from the catalog so later price changes don't alter quotes.
+CREATE TABLE IF NOT EXISTS items (
+  id            INTEGER PRIMARY KEY,
+  code          TEXT UNIQUE,
+  description   TEXT NOT NULL,
+  price_cents   INTEGER NOT NULL DEFAULT 0,
+  cubic_feet    REAL,
+  weight_lbs    REAL,
+  active        INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  legacy_id     TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS job_items (
+  id            INTEGER PRIMARY KEY,
+  job_id        INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  item_id       INTEGER REFERENCES items(id),
+  code          TEXT,
+  description   TEXT NOT NULL,
+  quantity      REAL NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_cents    INTEGER NOT NULL DEFAULT 0,
+  cubic_feet    REAL,
+  sort_order    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_job_items_job ON job_items(job_id);
+
+-- "Other Services" on the proposal (packing materials, piano handling, ...), any pricing method.
+CREATE TABLE IF NOT EXISTS job_services (
+  id            INTEGER PRIMARY KEY,
+  job_id        INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  description   TEXT NOT NULL,
+  quantity      REAL NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_cents    INTEGER NOT NULL DEFAULT 0,
+  sort_order    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_job_services_job ON job_services(job_id);
+
+-- Company details and proposal wording, edited on the Settings page.
+CREATE TABLE IF NOT EXISTS settings (
+  key    TEXT PRIMARY KEY,
+  value  TEXT
+);
+
+-- Quote line items: an itemised snapshot of the last saved price calculation.
 CREATE TABLE IF NOT EXISTS quote_lines (
   id            INTEGER PRIMARY KEY,
   job_id        INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,

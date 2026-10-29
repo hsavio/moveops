@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Estimates</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a class="active" href="estimates.html">Estimates</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+    <a class="button primary new-btn" href="estimate.html">+ New estimate</a>
+  </header>
+
+  <main>
+    <section class="card">
+      <form class="filters" id="filters" role="search">
+        <label class="grow">Search
+          <input type="search" name="q" placeholder="Name, company, phone, email or estimate #" autofocus>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="">All</option>
+            <option value="lead">Lead</option><option value="quoted">Quoted</option><option value="booked">Booked</option>
+            <option value="dispatched">Dispatched</option><option value="in_progress">In progress</option>
+            <option value="completed">Completed</option><option value="invoiced">Invoiced</option><option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <label>Move date from <input type="date" name="from"></label>
+        <label>to <input type="date" name="to"></label>
+      </form>
+      <div class="table-wrap">
+        <table class="grid" id="results">
+          <thead><tr><th>Est. #</th><th>Customer</th><th>Phone</th><th>Move date</th><th>Route</th><th>Pricing</th><th class="num">Quote</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="muted" id="count"></p>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="estimates.js"></script>
+</body>
+</html>

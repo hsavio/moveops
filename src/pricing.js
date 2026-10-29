@@ -28,11 +28,11 @@ function accessFees(address, card) {
 }
 
 // Hourly rate for a crew size: an explicit rate_card_crew_rates row wins, otherwise
-// base rate plus the extra-mover rate for each mover beyond the base crew.
+// movers x the per-mover rate ($75/h per mover: 2 movers $150/h, 3 movers $225/h).
 function crewHourlyRate(crewSize, card) {
   const explicit = card.crew_rates?.[crewSize];
   if (explicit != null) return explicit;
-  return card.base_hourly_cents + Math.max(0, crewSize - card.base_crew_size) * card.extra_mover_hourly_cents;
+  return crewSize * card.per_mover_hourly_cents;
 }
 
 /**
@@ -41,7 +41,7 @@ function crewHourlyRate(crewSize, card) {
  * @returns {{ lines: {code,description,amount_cents}[], subtotal_cents, tax_cents, total_cents, billable_hours, hourly_cents }}
  */
 function calculateQuote(input, card) {
-  const crewSize = input.crewSize ?? card.base_crew_size;
+  const crewSize = input.crewSize ?? 2;
   const trucks = input.trucks ?? 1;
   const hours = billableHours(input.hours, card);
 
@@ -78,4 +78,70 @@ function calculateQuote(input, card) {
   return { lines, subtotal_cents: subtotal, tax_cents: tax, total_cents: subtotal + tax, billable_hours: hours, hourly_cents: hourly };
 }
 
-module.exports = { calculateQuote, billableHours, crewHourlyRate };
+const dollars = (cents) => `$${(cents / 100).toFixed(2)}`;
+const sumLines = (lines) => lines.reduce((s, l) => s + l.amount_cents, 0);
+
+/**
+ * Price a saved estimate. All inputs come from the job itself (rates are snapshotted on the job).
+ *   hourly:   max(est. hours, minimum) rounded to the billing increment x hourly rate, + trip charge
+ *   fixed:    the agreed price
+ *   itemized: sum of item quantity x unit price
+ * then + Other Services, + move/sales additions (% of subtotal, then flat), - discounts (% then flat).
+ * Not-to-exceed estimates report the cap; the final bill can't exceed it.
+ */
+function priceJob(job, { items = [], services = [], billingIncrementMin = 15 } = {}) {
+  const lines = [];
+  const add = (code, description, amount) => amount && lines.push({ code, description, amount_cents: Math.round(amount) });
+
+  let hours = null;
+  if (job.pricing_method === 'hourly') {
+    const inc = billingIncrementMin / 60;
+    const rawHours = Math.max(Number(job.est_hours) || 0, Number(job.minimum_hours) || 0);
+    hours = Math.ceil(rawHours / inc - 1e-9) * inc;
+    const rate = job.hourly_rate_cents || 0;
+    add('labor', `${job.crew_size} movers × ${hours} h @ ${dollars(rate)}/h`, hours * rate);
+    add('travel', 'Trip charge', job.trip_charge_cents || 0);
+  } else if (job.pricing_method === 'fixed') {
+    add('fixed', 'Moving services (fixed price)', job.fixed_price_cents || 0);
+  } else if (job.pricing_method === 'itemized') {
+    for (const it of items) add('item', `${it.quantity} × ${it.description}`, it.quantity * it.unit_cents);
+  }
+  for (const sv of services) add('service', sv.quantity === 1 ? sv.description : `${sv.quantity} × ${sv.description}`, sv.quantity * sv.unit_cents);
+  const subtotal = sumLines(lines);
+
+  const adjustments = [];
+  const adj = (code, description, amount) => amount && adjustments.push({ code, description, amount_cents: Math.round(amount) });
+  adj('move_addition', `Move additions (${job.move_addition_percent}%)`, (subtotal * (job.move_addition_percent || 0)) / 100);
+  adj('move_addition', 'Move additions', job.move_addition_cents || 0);
+  adj('sales_addition', `Sales additions (${job.sales_addition_percent}%)`, (subtotal * (job.sales_addition_percent || 0)) / 100);
+  adj('sales_addition', 'Sales additions', job.sales_addition_cents || 0);
+  const withAdditions = subtotal + sumLines(adjustments);
+  adj('discount', `Discount (${job.discount_percent}%)`, -(withAdditions * (job.discount_percent || 0)) / 100);
+  adj('discount', 'Discount', -(job.discount_cents || 0));
+
+  const total = Math.max(0, subtotal + sumLines(adjustments));
+  return {
+    lines: [...lines, ...adjustments],
+    subtotal_cents: subtotal,
+    total_cents: total,
+    billable_hours: hours,
+    cap_cents: job.estimate_type === 'not_to_exceed' ? job.not_to_exceed_cents ?? null : null,
+  };
+}
+
+// Consistency rules between pricing method and estimate type. Returns an error message or null.
+function validateEstimateTerms(job) {
+  if (!['hourly', 'fixed', 'itemized', 'weight'].includes(job.pricing_method)) return 'Unknown pricing method';
+  if (job.estimate_type === 'binding' && !['fixed', 'itemized'].includes(job.pricing_method)) {
+    return 'A binding estimate needs a fixed or itemized price';
+  }
+  if (job.estimate_type === 'not_to_exceed') {
+    if (job.pricing_method !== 'hourly') return 'Not-to-exceed applies to hourly estimates';
+    if (!(job.not_to_exceed_cents > 0)) return 'Enter the not-to-exceed amount';
+  }
+  if (job.pricing_method === 'hourly' && !(job.hourly_rate_cents > 0)) return 'Enter the hourly rate';
+  if (job.pricing_method === 'fixed' && !(job.fixed_price_cents > 0)) return 'Enter the fixed price';
+  return null;
+}
+
+module.exports = { calculateQuote, billableHours, crewHourlyRate, priceJob, validateEstimateTerms };

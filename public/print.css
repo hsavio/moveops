@@ -1,0 +1,48 @@
+/* Proposal / invoice: plain-paper layout for the office printer (US Letter). Always light. */
+:root { color-scheme: light; --ink: #111; --muted: #555; --rule: #bbb; --accent: #1a3a8a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #e9ebef; color: var(--ink); font: 11pt/1.4 Georgia, "Times New Roman", serif; }
+.toolbar { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 10px 16px; background: #fff;
+  border-bottom: 1px solid #ccd; font: 14px system-ui, sans-serif; position: sticky; top: 0; flex-wrap: wrap; }
+.toolbar button { font: inherit; padding: 6px 16px; border-radius: 6px; border: 1px solid #2f6fde; background: #2f6fde; color: #fff; cursor: pointer; }
+.toolbar .warn { color: #8a4b00; }
+.doc { background: #fff; width: min(8.5in, 100%); min-height: 11in; margin: 16px auto; padding: 0.6in 0.65in; box-shadow: 0 1px 6px rgb(0 0 0 / .15); }
+.doc-head { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid var(--accent); padding-bottom: 10px; }
+.company strong { font-size: 15pt; color: var(--accent); }
+.meta { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; }
+.meta dt { color: var(--muted); } .meta dd { margin: 0; font-weight: bold; text-align: right; }
+h1 { text-align: center; font-size: 15pt; margin: 14px 0 10px; }
+h2 { font-size: 12pt; color: var(--accent); border-bottom: 1px solid var(--rule); margin: 16px 0 6px; padding-bottom: 2px; }
+h3 { font-size: 10pt; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin: 0 0 4px; }
+p { margin: 4px 0; }
+.parties { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border: 1px solid var(--rule); padding: 10px; }
+.cond, .small, .muted { font-size: 9.5pt; color: var(--muted); }
+.estimate-type { float: right; border: 1px solid var(--rule); padding: 6px 10px; margin: 0 0 8px 12px; font-size: 10pt; display: grid; gap: 2px; }
+.box { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--ink); text-align: center; line-height: 11px; font-size: 10px; margin-right: 4px; }
+.letter { margin-top: 12px; overflow: hidden; }
+.sign { margin-top: 10px; }
+table.lines { width: 100%; border-collapse: collapse; }
+table.lines td { padding: 4px 2px; border-bottom: 1px dotted var(--rule); }
+table.lines .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.lines tfoot .total td { font-weight: bold; border-top: 2px solid var(--ink); border-bottom: 0; }
+.hourly { margin-top: 12px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; align-items: start; }
+.time-grid { display: grid; grid-template-columns: auto 1.4in; gap: 8px 12px; }
+.blank { display: inline-block; min-width: 2.2in; border-bottom: 1px solid var(--ink); height: 1.1em; }
+.blank.short { min-width: 1in; }
+.time-grid .blank { min-width: 0; }
+.filled { border-bottom: 1px solid var(--ink); text-align: right; }
+.terms { margin-top: 16px; font-size: 9pt; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 8px; }
+.accept { margin-top: 28px; display: flex; gap: 32px; flex-wrap: wrap; }
+.error { color: #b00020; }
+@media (max-width: 700px) {
+  .doc { padding: 20px 16px; min-height: 0; margin: 0; }
+  .parties, .hourly { grid-template-columns: 1fr; }
+  .doc-head { flex-direction: column; }
+}
+@media print {
+  @page { size: letter; margin: 0.5in; }
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .doc { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+  section, .parties { break-inside: avoid; }
+}

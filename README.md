@@ -12,6 +12,16 @@ npm run import -- <folder>   # import legacy CSV exports (safe to re-run)
 
 Requires Node ≥ 22.13 (uses the built-in `node:sqlite`; no native modules).
 
+## Screens
+
+| Page | What it's for |
+|---|---|
+| Dashboard (`/`) | Today's KPIs, crew-slot schedule, dispatch grid, quick price calculator |
+| Estimates (`/estimates.html`) | Search by name, company, phone, email or estimate number; start a new estimate |
+| Estimate (`/estimate.html?id=`) | Customer, phones, dates and follow-up, origin/destination with conditions, hourly / fixed / itemized pricing, other services, additions and discounts, live total, workflow buttons |
+| Proposal / invoice (`/proposal.html?id=&doc=proposal\|invoice`) | Complete plain-paper documents for the office printer |
+| Settings (`/settings.html`) | Rates (per mover, trip charge, minimum, billing step, crew-size overrides), company details and proposal wording, items catalog |
+
 ## Configuration
 
 Copy `.env.example` to `.env` (git-ignored) and fill in what you use. Everything is optional; the app
@@ -92,6 +102,13 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | POST | `/api/jobs/:id/directions/send` | `{recipients: [{crewId, email}]}`. Emails directions to crew |
 | PATCH | `/api/crew/:id` | `{email, phone}` |
 | GET | `/api/config` | Which integrations are configured |
+| GET/PUT | `/api/settings` | Company details and proposal wording (+ current rate card) |
+| PUT | `/api/rate-card` | `{per_mover_hourly_cents, travel_fee_cents, minimum_hours, billing_increment_min, crew_rates}` |
+| GET/POST/PUT | `/api/items`, `/api/items/:id` | Item catalog for itemized pricing (`?all=1` includes hidden items) |
+| GET | `/api/customers?q=` | Customer lookup (name, company, email, phone digits) with saved addresses |
+| GET | `/api/estimates?q=&status=&from=&to=` | Estimate search |
+| GET/POST/PUT | `/api/estimates`, `/api/estimates/:id` | Load / create / update an estimate (customer, origin, destination, job, items, services) |
+| POST | `/api/estimates/price` | Live total for unsaved form data |
 
 ## Legacy import
 

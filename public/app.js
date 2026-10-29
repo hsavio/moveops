@@ -7,28 +7,7 @@ const TRANSITIONS = {
   dispatched: ['in_progress', 'booked', 'cancelled'], in_progress: ['completed'], completed: ['invoiced'], invoiced: [], cancelled: ['lead'],
 };
 
-const $ = (sel) => document.querySelector(sel);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const money = (cents) => (cents == null ? '—' : `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-const statusLabel = (s) => s.replace('_', ' ');
-const localDate = (d = new Date()) => d.toLocaleDateString('en-CA');
-
 const state = { date: localDate(), resources: null, jobsById: new Map() };
-
-async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body && JSON.stringify(opts.body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { data, status: res.status });
-  return data;
-}
-
-function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 2400);
-}
 
 // ------------------------------------------------------------------ KPIs
 function renderKpis(k) {
@@ -91,7 +70,7 @@ function renderDispatch(jobs) {
     const trucks = j.trucks.length ? j.trucks.map((t) => t.name).join(', ') : 'Assign truck…';
     const options = [j.status, ...TRANSITIONS[j.status]].map((s) => `<option value="${s}"${s === j.status ? ' selected' : ''}>${statusLabel(s)}</option>`).join('');
     return `<tr>
-      <td><strong>${esc(j.job_number)}</strong>${j.special_items ? `<div class="warn-text">⚑ ${esc(j.special_items)}</div>` : ''}</td>
+      <td><a href="estimate.html?id=${j.id}"><strong>${esc(j.job_number)}</strong></a>${j.special_items ? `<div class="warn-text">⚑ ${esc(j.special_items)}</div>` : ''}</td>
       <td>${j.arrival_window_start ? `${esc(j.arrival_window_start)}–${esc(j.arrival_window_end)}` : '<span class="muted">TBD</span>'}</td>
       <td>${esc(j.customer_name)}<div class="muted">${esc(j.customer_phone)}</div></td>
       <td class="route">${esc(j.origin)}<br>→ ${esc(j.destination)}<br>${j.distance_miles ?? '?'} mi · ${j.est_hours}h est.</td>

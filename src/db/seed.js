@@ -1,7 +1,6 @@
 // Seeds a demo dataset with jobs around today's date. Usage: npm run seed
 const { openDb, tx } = require('./index');
-
-const LEGACY_CREW_RATES = { 2: 9900, 3: 14500, 4: 19800, 6: 29700 };
+const { DEFAULT_RATES } = require('./defaults');
 
 function isoDate(offsetDays) {
   const d = new Date();
@@ -11,7 +10,8 @@ function isoDate(offsetDays) {
 
 function seed(db) {
   tx(db, () => {
-    for (const t of ['crew_adjustments', 'payments', 'job_events', 'job_trucks', 'job_crew', 'quote_lines', 'jobs', 'rate_cards', 'trucks', 'crew_members', 'addresses', 'customers']) {
+    for (const t of ['crew_adjustments', 'payments', 'job_events', 'job_trucks', 'job_crew', 'quote_lines', 'job_items', 'job_services',
+      'jobs', 'trucks', 'crew_members', 'addresses', 'customers']) {
       db.exec(`DELETE FROM ${t}`);
     }
 
@@ -23,14 +23,14 @@ function seed(db) {
       for (let h = 8; h <= 18; h++) win.run(`${((h + 11) % 12) + 1}:00 – ${(h % 12) + 1}:00 ${h + 1 < 12 ? 'am' : 'pm'}`, `${String(h).padStart(2, '0')}:00`, `${String(h + 1).padStart(2, '0')}:00`, h);
     }
 
-    // Defaults reverse-engineered from the 2017 legacy estimates: crew-size hourly rates, $45 trip
-    // charge, 2-hour minimum, 15-minute billing. Mileage, stairs and long walks were recorded but not charged.
-    const cardId = db.prepare(`INSERT INTO rate_cards (name, effective_from, base_crew_size, base_hourly_cents, extra_mover_hourly_cents,
-      extra_truck_hourly_cents, minimum_hours, billing_increment_min, travel_fee_cents, mileage_cents_per_mile, free_miles,
-      stair_flight_fee_cents, long_walk_fee_cents, weekend_multiplier, peak_season_multiplier, tax_rate)
-      VALUES ('Standard (2017 legacy rates)', '2017-01-01', 2, 9900, 4950, 0, 2, 15, 4500, 0, 0, 0, 0, 1.0, 1.0, 0)`).run().lastInsertRowid;
-    const crewRate = db.prepare('INSERT INTO rate_card_crew_rates (rate_card_id, crew_size, hourly_cents) VALUES (?, ?, ?)');
-    for (const [size, cents] of Object.entries(LEGACY_CREW_RATES)) crewRate.run(cardId, Number(size), cents);
+    const cardId = db.prepare('SELECT id FROM rate_cards WHERE active = 1 ORDER BY effective_from DESC LIMIT 1').get().id;
+
+    if (!db.prepare('SELECT count(*) AS n FROM items').get().n) {
+      const item = db.prepare('INSERT INTO items (code, description, price_cents, cubic_feet) VALUES (?, ?, ?, ?)');
+      [['SOFA', 'Sofa', 6000, 35], ['LOVE', 'Loveseat', 4500, 25], ['BEDQ', 'Queen bed', 5500, 60], ['DRSR', 'Dresser', 4000, 30],
+       ['TBL', 'Dining table', 3500, 25], ['CHR', 'Dining chair', 800, 5], ['BOXM', 'Box, medium', 500, 3], ['WASH', 'Washer', 5000, 25],
+       ['PIAN', 'Upright piano', 25000, 70]].forEach((r) => item.run(...r));
+    }
 
     const truck = db.prepare('INSERT INTO trucks (name, length_ft, capacity_cuft, plate, status) VALUES (?, ?, ?, ?, ?)');
     [['Truck 1', 26, 1700, 'MV-1001', 'available'], ['Truck 2', 26, 1700, 'MV-1002', 'available'],
@@ -43,13 +43,15 @@ function seed(db) {
      ['Ray', 'Duval', 'mover'], ['Jo', 'Park', 'mover']]
       .forEach(([f, l, role], i) => crew.run(f, l, role, `555-01${String(i).padStart(2, '0')}`,
         i < 8 ? `${f}.${l}@example.com`.toLowerCase() : null, role === 'lead' ? 2600 : 2000));
+    db.prepare("UPDATE crew_members SET is_salesperson = 1 WHERE first_name = 'Dana' AND last_name = 'Ortiz'").run();
 
     const cust = db.prepare('INSERT INTO customers (kind, first_name, last_name, company_name, phone, email, advertising_source) VALUES (?, ?, ?, ?, ?, ?, ?)');
     const addr = db.prepare(`INSERT INTO addresses (customer_id, line1, city, state, postal_code, dwelling_type, floor, stair_flights, has_elevator, long_walks)
       VALUES (?, ?, ?, 'TX', ?, ?, ?, ?, ?, ?)`);
     const job = db.prepare(`INSERT INTO jobs (job_number, customer_id, origin_address_id, destination_address_id, status, move_date,
-      arrival_window_start, arrival_window_end, est_hours, crew_size, trucks_needed, distance_miles, rate_card_id, quoted_total_cents, special_items)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      arrival_window_start, arrival_window_end, est_hours, crew_size, trucks_needed, distance_miles, rate_card_id, quoted_total_cents, special_items,
+      minimum_hours, hourly_rate_cents, trip_charge_cents)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?)`);
 
     const people = [
       ['residential', 'Hannah', 'Lee', null, 'internet'], ['residential', 'Victor', 'Alvarez', null, 'referral'],
@@ -77,8 +79,9 @@ function seed(db) {
       const d = addr.run(cid, `${400 + i * 23} ${streets[(i + 3) % 8]}`, i % 2 ? 'Conroe' : 'The Woodlands', i % 2 ? '77301' : '77381', 'house', 2, 1, 0, 0);
       const [off, status, s, e, h, crewN, trucksN, miles, special] = plan[i];
       const jn = `J-2026-${String(101 + i).padStart(5, '0')}`;
+      const rate = crewN * DEFAULT_RATES.per_mover_hourly_cents;
       job.run(jn, cid, o.lastInsertRowid, d.lastInsertRowid, status, isoDate(off), s, e, h, crewN, trucksN, miles, cardId,
-        Math.max(h, 2) * (LEGACY_CREW_RATES[crewN] ?? 9900 + (crewN - 2) * 4950) + 4500, special);
+        Math.max(h, 2) * rate + DEFAULT_RATES.travel_fee_cents, special, rate, DEFAULT_RATES.travel_fee_cents);
     });
 
     // Assign crew + trucks to jobs that are already dispatched or later, and to two booked jobs.

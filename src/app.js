@@ -4,6 +4,8 @@ const { tx } = require('./db');
 const { calculateQuote } = require('./pricing');
 const { createDistanceService, directionsUrl } = require('./maps');
 const { createMailer } = require('./mailer');
+const { HttpError, wrap, EMAIL_RE, today } = require('./http');
+const { registerEstimateRoutes } = require('./estimates');
 
 // Allowed job status transitions. Anything not listed is rejected.
 const TRANSITIONS = {
@@ -17,22 +19,6 @@ const TRANSITIONS = {
   cancelled: ['lead'],
 };
 
-class HttpError extends Error {
-  constructor(status, message, details) {
-    super(message);
-    this.status = status;
-    this.details = details;
-  }
-}
-
-function today() {
-  return new Date().toLocaleDateString('en-CA');
-}
-
-// Express 4 does not catch rejected promises; route async handlers through next().
-const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const fullAddress = (a) => a && [[a.line1, a.line2].filter(Boolean).join(' '), a.city, `${a.state} ${a.postal_code}`.trim()]
   .filter((x) => x && x.trim()).join(', ');
@@ -58,7 +44,7 @@ function createApp(db, services = {}) {
   app.use(express.static(path.join(__dirname, '../public')));
 
   const currentRateCard = () => {
-    const card = db.prepare(`SELECT * FROM rate_cards WHERE active = 1 AND effective_from <= ? ORDER BY effective_from DESC LIMIT 1`).get(today());
+    const card = db.prepare(`SELECT * FROM rate_cards WHERE active = 1 AND effective_from <= ? ORDER BY effective_from DESC, id DESC LIMIT 1`).get(today());
     if (card) {
       card.crew_rates = Object.fromEntries(db.prepare('SELECT crew_size, hourly_cents FROM rate_card_crew_rates WHERE rate_card_id = ?')
         .all(card.id).map((r) => [r.crew_size, r.hourly_cents]));
@@ -140,17 +126,21 @@ function createApp(db, services = {}) {
 
   app.get('/api/resources', (req, res) => {
     res.json({
-      crew: db.prepare(`SELECT id, first_name || ' ' || last_name AS name, role, email FROM crew_members WHERE active = 1 ORDER BY role, last_name`).all(),
+      crew: db.prepare(`SELECT id, first_name || ' ' || last_name AS name, role, email, is_salesperson FROM crew_members WHERE active = 1 ORDER BY role, last_name`).all(),
       trucks: db.prepare(`SELECT id, name, length_ft, status FROM trucks WHERE status != 'retired' ORDER BY name`).all(),
     });
   });
 
   app.patch('/api/jobs/:id/status', (req, res) => {
-    const job = db.prepare('SELECT id, status FROM jobs WHERE id = ?').get(req.params.id);
+    const job = db.prepare('SELECT id, status, move_date, arrival_window_start FROM jobs WHERE id = ?').get(req.params.id);
     if (!job) throw new HttpError(404, 'Job not found');
     const to = req.body.status;
     if (!TRANSITIONS[job.status]?.includes(to)) {
       throw new HttpError(409, `Cannot move a job from '${job.status}' to '${to}'`, { allowed: TRANSITIONS[job.status] });
+    }
+    // Accepting a quote means agreeing a date and arrival time (the legacy "Schedule" step).
+    if (to === 'booked' && (!job.move_date || !job.arrival_window_start)) {
+      throw new HttpError(409, 'Set the move date and arrival time before booking');
     }
     tx(db, () => {
       db.prepare(`UPDATE jobs SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(to, job.id);
@@ -323,6 +313,8 @@ function createApp(db, services = {}) {
       destination: b.destination,
     }, card));
   }));
+
+  registerEstimateRoutes(app, db, { currentRateCard, distance, TRANSITIONS });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
   // eslint-disable-next-line no-unused-vars

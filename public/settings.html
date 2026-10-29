@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoveOps Settings</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+    <nav class="nav">
+      <a href="index.html">Dashboard</a>
+      <a href="estimates.html">Estimates</a>
+      <a class="active" href="settings.html">Settings</a>
+    </nav>
+  </header>
+  <main class="settings-grid">
+    <section class="card">
+      <h2>Rates</h2>
+      <form id="rateForm" novalidate>
+        <div class="fields two">
+          <label>Hourly rate per mover ($) <input class="money" name="per_mover_hourly_cents" inputmode="decimal" required></label>
+          <label>Trip charge ($) <input class="money" name="travel_fee_cents" inputmode="decimal" required></label>
+          <label>Minimum hours <input type="number" min="0" max="24" step="0.25" name="minimum_hours"></label>
+          <label>Bill in steps of
+            <select name="billing_increment_min">
+              <option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option>
+              <option value="10">10 minutes</option><option value="6">6 minutes</option><option value="5">5 minutes</option><option value="1">1 minute</option>
+            </select>
+          </label>
+        </div>
+        <h3>Hourly rate by crew size</h3>
+        <p class="muted small">Movers × the per-mover rate. Type a different amount to override one crew size; clear it to go back.</p>
+        <table class="lines" id="crewTable">
+          <thead><tr><th>Movers</th><th class="num">Standard</th><th class="num">Override ($/h)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="muted small" id="rateMeta"></p>
+        <p class="error small" id="rateError"></p>
+        <button class="primary">Save rates</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Company &amp; proposal</h2>
+      <form id="companyForm" novalidate>
+        <div class="fields two">
+          <label class="span2">Company name <input name="company_name"></label>
+          <label class="span2">Street address <input name="company_address"></label>
+          <label class="span2">City, state, ZIP <input name="company_city_state_zip"></label>
+          <label>Phone <input type="tel" name="company_phone"></label>
+          <label>Email <input type="email" name="company_email"></label>
+          <label>DOT number <input name="dot_number"></label>
+          <label>Signed by <input name="signer_name"></label>
+          <label class="span2">Signer's title <input name="signer_title"></label>
+          <label class="span2">Proposal letter <textarea name="proposal_intro" rows="3"></textarea></label>
+          <label class="span2">Terms (printed at the bottom) <textarea name="proposal_terms" rows="6"></textarea></label>
+        </div>
+        <button class="primary">Save company details</button>
+      </form>
+    </section>
+
+    <section class="card span-all">
+      <div class="card-head"><h2>Items for itemized pricing</h2>
+        <label class="inline small"><input type="checkbox" id="showInactive"> Show hidden items</label></div>
+      <div class="table-wrap">
+        <table class="lines" id="itemsTable">
+          <thead><tr><th>Code</th><th>Description</th><th class="num">Price ($)</th><th class="num">Cu ft</th><th>Active</th><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr id="newItemRow">
+            <td><input name="code" placeholder="CODE" aria-label="New item code"></td>
+            <td><input name="description" placeholder="New item" aria-label="New item description"></td>
+            <td class="num"><input class="money" name="price_cents" aria-label="New item price"></td>
+            <td class="num"><input type="number" min="0" name="cubic_feet" aria-label="New item cubic feet"></td>
+            <td></td>
+            <td><button type="button" id="addItem">Add</button></td>
+          </tr></tfoot>
+        </table>
+      </div>
+      <p class="muted small">Items are copied onto each estimate when added, so changing a price here doesn't change existing estimates.
+        The legacy Items table can be imported later.</p>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="common.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -8,6 +8,7 @@ npm start          # http://localhost:3000. An empty DB is auto-seeded with demo
 npm run seed       # reset demo data
 npm test           # pricing, API and legacy-import tests (node:test)
 npm run import -- <folder>   # import legacy CSV exports (safe to re-run)
+npm run user -- list         # office accounts; also: reset <username>, create-admin <username>
 ```
 
 Requires Node ≥ 22.13 (uses the built-in `node:sqlite`; no native modules).
@@ -25,6 +26,25 @@ Requires Node ≥ 22.13 (uses the built-in `node:sqlite`; no native modules).
 | Crew (`/crew.html`) | Workers: contact and mailing address, pay (% of job or hourly), W-9 and TAX1099 status, pay adjustments |
 | Payroll (`/payroll.html`) | Weekly pay sheet (Sat–Fri, paid Wednesday), mark paid, print; year-end 1099 totals and TAX1099 import file |
 | Settings (`/settings.html`) | Rates (per mover, trip charge, minimum, billing step, crew-size overrides), company details and proposal wording, agents & commission %, items catalog |
+
+## Logins
+
+Only office staff sign in (crew don't). On a brand-new install, the first visit shows **Create the first admin
+account**; do this right after installing. Admins add more users in **Settings → Users** with a temporary password
+that the person replaces at first sign-in.
+
+| Role | Can use |
+|---|---|
+| Admin | Everything, including Crew, Payroll and 1099s, rates, company settings, agents, items and user accounts |
+| Office | Dashboard, Calendar, Estimates (all steps incl. closeout and payments), Reports, own password |
+
+Passwords are stored as salted scrypt hashes. Sessions last 14 days (renewed while in use) in an HttpOnly,
+SameSite=Lax cookie; set `COOKIE_SECURE=1` once the site runs on HTTPS. Five wrong passwords lock that username for
+15 minutes from that address. State-changing API calls must be JSON, which blocks cross-site form posts.
+Job history records the signed-in person.
+
+Locked out? On the server: `npm run user -- list`, `npm run user -- reset <username>` (prints a temporary
+password) or `npm run user -- create-admin <username>`.
 
 ## Configuration
 
@@ -108,6 +128,11 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/config` | Which integrations are configured |
 | GET/PUT | `/api/settings` | Company details and proposal wording (+ current rate card) |
 | PUT | `/api/rate-card` | `{per_mover_hourly_cents, travel_fee_cents, minimum_hours, billing_increment_min, crew_rates}` |
+| GET | `/api/auth/status` | `{setup_needed, user}` (public) |
+| POST | `/api/auth/setup` | Create the first admin (only while there are no users) |
+| POST | `/api/auth/login`, `/api/auth/logout` | `{username, password}` |
+| GET/POST | `/api/auth/me`, `/api/auth/password` | Current user; change own password `{current_password, new_password}` |
+| GET/POST/PUT | `/api/users`, `/api/users/:id` | Admin: list / add (temporary password) / edit, deactivate, reset |
 | GET/PUT/DELETE | `/api/settings/logo` | Company logo (PUT the raw image; PNG, JPEG, GIF or WebP, max 2 MB) |
 | GET/POST/PUT | `/api/items`, `/api/items/:id` | Item catalog for itemized pricing (`?all=1` includes hidden items) |
 | GET | `/api/customers?q=` | Customer lookup (name, company, email, phone digits) with saved addresses |

@@ -392,3 +392,25 @@ CREATE TABLE IF NOT EXISTS files (
   data        BLOB NOT NULL,
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- Office logins. Crew don't log in. Passwords are stored only as scrypt hashes.
+CREATE TABLE IF NOT EXISTS users (
+  id             INTEGER PRIMARY KEY,
+  username       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  display_name   TEXT NOT NULL,
+  password_hash  TEXT NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'office' CHECK (role IN ('admin','office')),
+  active         INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0,1)),
+  last_login_at  TEXT,
+  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- Login sessions. Only a SHA-256 of the cookie token is stored.
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash  TEXT PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at  TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);

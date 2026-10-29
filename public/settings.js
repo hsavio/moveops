@@ -154,9 +154,61 @@ $('#logoRemove').addEventListener('click', async () => {
   showLogo((await api('/api/settings/logo', { method: 'DELETE' })).logo);
 });
 
+// ------------------------------------------------------------------ users (admin) + my password
+async function loadUsers() {
+  const users = await api('/api/users');
+  $('#usersTable tbody').innerHTML = users.map((u) => `<tr data-id="${u.id}" class="${u.active ? '' : 'inactive'}">
+    <td><input name="display_name" value="${esc(u.display_name)}" aria-label="Name"></td>
+    <td>${esc(u.username)}${u.must_change_password ? ' <span class="muted small">(temporary password)</span>' : ''}</td>
+    <td><select name="role" aria-label="Role"><option value="office"${u.role === 'office' ? ' selected' : ''}>Office</option>
+      <option value="admin"${u.role === 'admin' ? ' selected' : ''}>Admin</option></select></td>
+    <td class="small">${u.last_login_at ? fmtDate(u.last_login_at) : '<span class="muted">never</span>'}</td>
+    <td><input type="checkbox" name="active" ${u.active ? 'checked' : ''} aria-label="Active"></td>
+    <td><input name="password" type="text" placeholder="New temporary password" aria-label="Reset password" autocomplete="off"></td>
+    <td><button type="button" class="save-user">Save</button></td>
+  </tr>`).join('');
+}
+$('#usersTable').addEventListener('click', async (e) => {
+  const row = e.target.closest('tr');
+  const val = (n) => $(`[name=${n}]`, row);
+  try {
+    if (e.target.classList.contains('save-user')) {
+      await api(`/api/users/${row.dataset.id}`, { method: 'PUT', body: { display_name: val('display_name').value, role: val('role').value,
+        active: val('active').checked, ...(val('password').value ? { password: val('password').value } : {}) } });
+      toast(val('password').value ? 'Saved. They must choose a new password at next sign-in.' : 'User saved');
+      loadUsers();
+    } else if (e.target.id === 'addUser') {
+      await api('/api/users', { method: 'POST', body: { display_name: val('display_name').value, username: val('username').value,
+        role: val('role').value, password: val('password').value } });
+      $$('input', row).forEach((i) => { i.value = ''; });
+      toast('User added. Give them the temporary password.');
+      loadUsers();
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+$('#passwordForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api('/api/auth/password', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) });
+    e.target.reset();
+    toast('Password changed. Other devices were signed out.');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 (async () => {
+  const user = await currentUser;
+  if (user && user.role !== 'admin') {
+    $$('.admin-only').forEach((el) => { el.hidden = true; });
+    $('#officeNote').hidden = false;
+    return;
+  }
   const s = await api('/api/settings');
   showLogo(s.logo);
+  if (user) loadUsers(); else $('#usersCard').hidden = true;
   card = s.rate_card;
   fillRates();
   for (const [k, v] of Object.entries(s.settings)) if ($('#companyForm').elements.namedItem(k)) $('#companyForm').elements.namedItem(k).value = v ?? '';

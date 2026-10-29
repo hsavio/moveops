@@ -9,6 +9,8 @@ const { registerEstimateRoutes } = require('./estimates');
 const { registerCalendarRoutes } = require('./calendar');
 const { registerReportRoutes } = require('./reports');
 const { registerPersonnelRoutes } = require('./personnel');
+const { createAuth, authMiddleware } = require('./auth');
+const { registerUserRoutes } = require('./users');
 
 // Allowed job status transitions. Anything not listed is rejected.
 const TRANSITIONS = {
@@ -37,6 +39,7 @@ const fmt12 = (hhmm) => {
  * @param {object} [services.distance]  distance service (see maps.js)
  * @param {object} [services.mailer]    mailer (see mailer.js)
  * @param {string} [services.yardAddress] where crews start the day; first stop in directions
+ * @param {boolean} [services.requireAuth] false only in tests that don't exercise logins (default true)
  */
 function createApp(db, services = {}) {
   const distance = services.distance ?? createDistanceService({ db });
@@ -44,6 +47,10 @@ function createApp(db, services = {}) {
   const yardAddress = services.yardAddress ?? process.env.YARD_ADDRESS ?? null;
   const app = express();
   app.use(express.json());
+  // Office logins guard every page and API call. Tests that aren't about logins pass requireAuth: false.
+  const auth = createAuth(db);
+  if (services.requireAuth !== false) app.use(authMiddleware(auth));
+  registerUserRoutes(app, db, auth);
   app.use(express.static(path.join(__dirname, '../public')));
 
   const currentRateCard = () => {

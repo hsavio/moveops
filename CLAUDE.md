@@ -8,6 +8,7 @@ for setup, API and import details; this file holds context and decisions.
 - `npm start` / `npm run dev`: server on :3000 (auto-seeds demo data only into a completely empty DB)
 - `npm test`: node:test suite (pricing, API, legacy import, distance). Keep it green.
 - `npm run import -- <folder>`: import legacy CSV exports. Use a separate DB for real data: `DB_FILE=data/live.db`.
+- `npm run user -- list | reset <username> | create-admin <username>`: account recovery on the server.
 - Config lives in `.env` (git-ignored); see `.env.example`.
 
 ## Layout
@@ -19,6 +20,8 @@ for setup, API and import details; this file holds context and decisions.
 - `src/reports.js`: Activities, Unpaid Moves, Booking Commission reports + agents API.
 - `src/payroll.js`: pure pay rules (pay week, split/hourly job pay, tip shares, TAX1099 rows).
   `src/personnel.js`: crew records, adjustments, weekly payroll + payouts, year-end 1099 summary/export.
+- `src/auth.js`: password hashing, sessions, lockout, access rules (admin-only paths). `src/users.js`: login/setup/
+  password/user-account routes. `src/tools/users.js`: `npm run user` recovery CLI.
 - `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
   booking confirmation, invoice) as pure text+HTML renderers.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
@@ -110,8 +113,11 @@ for setup, API and import details; this file holds context and decisions.
    Logo done: uploaded in Settings (PNG/JPEG/GIF/WebP by magic bytes, 2 MB, SVG refused), stored in `files`,
    printed on proposals/invoices and embedded in customer emails as an inline (cid) attachment. Use it on
    letters too once the legacy Letters table arrives.
-   Next: office logins (admin/office roles); extra stops.
+   Logins done: office staff only; roles admin (everything) / office (no crew, payroll, 1099, rates, settings changes,
+   users). First-run setup creates the first admin. Tests that aren't about logins pass `requireAuth: false`
+   to createApp; keep new API tests doing the same, and add admin-only paths to `adminOnlyApi` in src/auth.js.
+   Next: extra stops; Letters (waiting on the legacy Letters table).
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).
-4. Before launch: migrations, auth/users, backups, deployment.
+4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1).

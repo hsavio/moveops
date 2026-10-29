@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in to MoveOps</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+  <main class="login-box card">
+    <div class="brand"><span class="logo">▣</span> MoveOps</div>
+
+    <form id="loginForm" hidden novalidate>
+      <h1>Sign in</h1>
+      <label class="stacked">Username <input name="username" autocomplete="username" required autofocus></label>
+      <label class="stacked">Password <input type="password" name="password" autocomplete="current-password" required></label>
+      <p class="error small" role="alert"></p>
+      <button class="primary wide">Sign in</button>
+      <p class="muted small">Forgot your password? Ask an admin to reset it.</p>
+    </form>
+
+    <form id="setupForm" hidden novalidate>
+      <h1>Welcome</h1>
+      <p class="muted small">Create the first admin account. You can add office staff afterwards in Settings.</p>
+      <label class="stacked">Your name <input name="display_name" autocomplete="name" required></label>
+      <label class="stacked">Username <input name="username" autocomplete="username" required></label>
+      <label class="stacked">Password (10+ characters) <input type="password" name="password" autocomplete="new-password" required minlength="10"></label>
+      <p class="error small" role="alert"></p>
+      <button class="primary wide">Create admin account</button>
+    </form>
+
+    <form id="changeForm" hidden novalidate>
+      <h1>Choose a new password</h1>
+      <p class="muted small">You signed in with a temporary password. Pick your own to continue.</p>
+      <label class="stacked">Temporary password <input type="password" name="current_password" autocomplete="current-password" required></label>
+      <label class="stacked">New password (10+ characters) <input type="password" name="new_password" autocomplete="new-password" required minlength="10"></label>
+      <p class="error small" role="alert"></p>
+      <button class="primary wide">Save and continue</button>
+    </form>
+  </main>
+  <script src="common.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

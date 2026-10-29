@@ -6,7 +6,7 @@ const { createApp } = require('../src/app');
 
 const db = openDb(':memory:');
 seed(db);
-const server = createApp(db, { mailer: { configured: false } }).listen(0);
+const server = createApp(db, { mailer: { configured: false }, requireAuth: false }).listen(0);
 const base = `http://localhost:${server.address().port}`;
 test.after(() => server.close());
 

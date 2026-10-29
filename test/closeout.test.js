@@ -9,7 +9,7 @@ const db = openDb(':memory:');
 seed(db);
 db.prepare("UPDATE settings SET value = 'Demo Movers' WHERE key = 'company_name'").run();
 const outbox = [];
-const server = createApp(db, { mailer: { configured: true, async send(m) { outbox.push(m); } } }).listen(0);
+const server = createApp(db, { requireAuth: false, mailer: { configured: true, async send(m) { outbox.push(m); } } }).listen(0);
 const base = `http://localhost:${server.address().port}`;
 test.after(() => server.close());
 

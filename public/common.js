@@ -21,6 +21,11 @@ const fmt12 = (hhmm) => {
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body && JSON.stringify(opts.body) });
+  // Session expired or signed out elsewhere: back to the login page, then return here.
+  if (res.status === 401 && !path.startsWith('/api/auth/')) {
+    location.href = `/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+    return new Promise(() => {});
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { data, status: res.status });
   return data;
@@ -34,3 +39,25 @@ function toast(msg) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
 }
+
+// ------------------------------------------------------------------ signed-in user
+// Adds "name · Sign out" to the top bar and hides admin-only links for office staff.
+const ADMIN_LINKS = ['crew.html', 'payroll.html'];
+const currentUser = (async () => {
+  if (location.pathname.endsWith('/login.html')) return null;
+  const res = await fetch('/api/auth/me');
+  if (!res.ok) return null;                 // logins switched off (tests) or signed out: api() handles redirects
+  const { user } = await res.json();
+  if (user.must_change_password) { location.href = `/login.html?next=${encodeURIComponent(location.pathname)}`; return user; }
+  const bar = document.querySelector('.topbar');
+  if (bar) {
+    if (user.role !== 'admin') ADMIN_LINKS.forEach((href) => document.querySelector(`.nav a[href="${href}"]`)?.remove());
+    bar.insertAdjacentHTML('beforeend', `<div class="user-menu"><span>${esc(user.display_name)}</span>
+      <button type="button" id="signOut">Sign out</button></div>`);
+    document.getElementById('signOut').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      location.href = '/login.html';
+    });
+  }
+  return user;
+})();

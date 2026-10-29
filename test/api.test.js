@@ -6,7 +6,7 @@ const { createApp } = require('../src/app');
 
 const db = openDb(':memory:');
 seed(db);
-const server = createApp(db).listen(0);
+const server = createApp(db, { requireAuth: false }).listen(0);
 const base = `http://localhost:${server.address().port}`;
 test.after(() => server.close());
 
@@ -63,7 +63,7 @@ async function directionsServer(mailerOverride) {
     configured: true,
     async send(msg) { outbox.push(msg); },
   };
-  const srv = createApp(ddb, { mailer, yardAddress: '500 Yard Rd, Spring, TX 77380' }).listen(0);
+  const srv = createApp(ddb, { requireAuth: false, mailer, yardAddress: '500 Yard Rd, Spring, TX 77380' }).listen(0);
   const url = `http://localhost:${srv.address().port}`;
   const req = async (path, method = 'GET', body) => {
     const res = await fetch(url + path, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });

@@ -20,7 +20,8 @@
     </nav>
   </header>
   <main class="settings-grid">
-    <section class="card">
+    <p class="banner-info span-all" id="officeNote" hidden>Rates, company details, agents, items and user accounts can only be changed by an admin.</p>
+    <section class="card admin-only">
       <h2>Rates</h2>
       <form id="rateForm" novalidate>
         <div class="fields two">
@@ -46,7 +47,7 @@
       </form>
     </section>
 
-    <section class="card">
+    <section class="card admin-only">
       <h2>Company &amp; proposal</h2>
       <div class="logo-box">
         <div class="logo-preview" id="logoPreview"><span class="muted small">No logo yet</span></div>
@@ -76,7 +77,7 @@
       </form>
     </section>
 
-    <section class="card span-all">
+    <section class="card span-all admin-only">
       <div class="card-head"><h2>Agents &amp; realtors</h2>
         <label class="inline small"><input type="checkbox" id="showInactiveAgents"> Show inactive</label></div>
       <p class="muted small">People who refer moves to you. Their commission % is used on the Booking Commission report.</p>
@@ -98,7 +99,7 @@
       </div>
     </section>
 
-    <section class="card span-all">
+    <section class="card span-all admin-only">
       <div class="card-head"><h2>Items for itemized pricing</h2>
         <label class="inline small"><input type="checkbox" id="showInactive"> Show hidden items</label></div>
       <div class="table-wrap">
@@ -117,6 +118,36 @@
       </div>
       <p class="muted small">Items are copied onto each estimate when added, so changing a price here doesn't change existing estimates.
         The legacy Items table can be imported later.</p>
+    </section>
+    <section class="card span-all admin-only" id="usersCard">
+      <h2>Users</h2>
+      <p class="muted small">Office staff who sign in to MoveOps. Admins can also see crew pay, payroll and 1099s, and change rates and settings.
+        New users get a temporary password and choose their own when they first sign in.</p>
+      <div class="table-wrap">
+        <table class="lines" id="usersTable">
+          <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Last sign-in</th><th>Active</th><th>Reset password</th><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr>
+            <td><input name="display_name" placeholder="New user's name" aria-label="Name"></td>
+            <td><input name="username" placeholder="username" aria-label="Username" autocomplete="off"></td>
+            <td><select name="role" aria-label="Role"><option value="office">Office</option><option value="admin">Admin</option></select></td>
+            <td colspan="2"></td>
+            <td><input name="password" type="text" placeholder="Temporary password" aria-label="Temporary password" autocomplete="off"></td>
+            <td><button type="button" id="addUser">Add</button></td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>My password</h2>
+      <form id="passwordForm" novalidate>
+        <div class="fields two">
+          <label>Current password <input type="password" name="current_password" autocomplete="current-password"></label>
+          <label>New password (10+ characters) <input type="password" name="new_password" autocomplete="new-password"></label>
+        </div>
+        <button>Change password</button>
+      </form>
     </section>
   </main>
   <div id="toast" class="toast" role="status"></div>

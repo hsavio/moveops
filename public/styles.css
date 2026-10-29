@@ -362,3 +362,8 @@ a.button[aria-disabled] { opacity: .5; pointer-events: none; }
 .fields label.inline { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
 .fields label.inline input { width: auto; }
 .adj-add #adjDesc { grid-column: 1 / -1; }
+.logo-box { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.logo-preview { width: 160px; height: 72px; border: 1px dashed var(--border); border-radius: 8px; display: grid; place-items: center;
+  background: #fff; flex-shrink: 0; overflow: hidden; }
+.logo-preview img { max-width: 150px; max-height: 64px; object-fit: contain; }
+label.button { cursor: pointer; }

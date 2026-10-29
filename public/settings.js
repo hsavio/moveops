@@ -131,8 +131,32 @@ $('#agentsTable').addEventListener('click', async (e) => {
 });
 $('#showInactiveAgents').addEventListener('change', loadAgents);
 
+// ------------------------------------------------------------------ logo
+function showLogo(logo) {
+  $('#logoPreview').innerHTML = logo
+    ? `<img src="/api/settings/logo?v=${encodeURIComponent(logo.updated_at)}" alt="Company logo">`
+    : '<span class="muted small">No logo yet</span>';
+  $('#logoRemove').hidden = !logo;
+}
+$('#logoFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('That file is too large (2 MB at most)'); return; }
+  const res = await fetch('/api/settings/logo', { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+  const data = await res.json().catch(() => ({}));
+  e.target.value = '';
+  if (!res.ok) { toast(data.error || 'Upload failed'); return; }
+  showLogo(data.logo);
+  toast('Logo uploaded');
+});
+$('#logoRemove').addEventListener('click', async () => {
+  if (!confirm('Remove the logo?')) return;
+  showLogo((await api('/api/settings/logo', { method: 'DELETE' })).logo);
+});
+
 (async () => {
   const s = await api('/api/settings');
+  showLogo(s.logo);
   card = s.rate_card;
   fillRates();
   for (const [k, v] of Object.entries(s.settings)) if ($('#companyForm').elements.namedItem(k)) $('#companyForm').elements.namedItem(k).value = v ?? '';

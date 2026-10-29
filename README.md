@@ -108,6 +108,7 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/config` | Which integrations are configured |
 | GET/PUT | `/api/settings` | Company details and proposal wording (+ current rate card) |
 | PUT | `/api/rate-card` | `{per_mover_hourly_cents, travel_fee_cents, minimum_hours, billing_increment_min, crew_rates}` |
+| GET/PUT/DELETE | `/api/settings/logo` | Company logo (PUT the raw image; PNG, JPEG, GIF or WebP, max 2 MB) |
 | GET/POST/PUT | `/api/items`, `/api/items/:id` | Item catalog for itemized pricing (`?all=1` includes hidden items) |
 | GET | `/api/customers?q=` | Customer lookup (name, company, email, phone digits) with saved addresses |
 | GET | `/api/estimates?q=&status=&from=&to=` | Estimate search |

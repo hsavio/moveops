@@ -123,3 +123,36 @@ test('invoice email for a paid-in-full binding job', () => {
   assert.match(m.text, /Paid in full/);
   assert.match(m.html, /^<div/);
 });
+
+// 1x1 transparent PNG
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+test('logo: upload PNG, refuse SVG/HTML, serve it, embed it in customer emails', async () => {
+  const up = await fetch(`${base}/api/settings/logo`, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: PNG });
+  assert.equal(up.status, 200);
+  assert.equal((await up.json()).logo.mime, 'image/png');
+  const svg = await fetch(`${base}/api/settings/logo`, { method: 'PUT', headers: { 'Content-Type': 'image/svg+xml' }, body: '<svg onload="alert(1)"/>' });
+  assert.equal(svg.status, 415);
+  const lie = await fetch(`${base}/api/settings/logo`, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: '<html>not a png</html>' });
+  assert.equal(lie.status, 415);
+  const big = await fetch(`${base}/api/settings/logo`, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)]) });
+  assert.equal(big.status, 413);
+
+  const got = await fetch(`${base}/api/settings/logo`);
+  assert.equal(got.headers.get('content-type'), 'image/png');
+  assert.equal(got.headers.get('x-content-type-options'), 'nosniff');
+  assert.ok(Buffer.from(await got.arrayBuffer()).equals(PNG));
+  assert.equal((await call('/api/settings')).body.logo.mime, 'image/png');
+
+  const est = await estimate();
+  outbox.length = 0;
+  await call(`/api/estimates/${est.job.id}/email`, 'POST', { kind: 'proposal' });
+  assert.match(outbox[0].html, /<img src="cid:company-logo"/);
+  assert.equal(outbox[0].attachments[0].cid, 'company-logo');
+
+  await call('/api/settings/logo', 'DELETE');
+  assert.equal((await fetch(`${base}/api/settings/logo`)).status, 404);
+  outbox.length = 0;
+  await call(`/api/estimates/${est.job.id}/email`, 'POST', { kind: 'proposal' });
+  assert.doesNotMatch(outbox[0].html, /cid:/);
+});

@@ -21,7 +21,7 @@ function companyLines(s) {
 }
 
 // Builds matching text and HTML bodies from a list of blocks.
-function compose(blocks) {
+function compose(blocks, logoCid) {
   const text = [];
   const html = [];
   for (const b of blocks) {
@@ -42,7 +42,8 @@ function compose(blocks) {
   }
   return {
     text: text.join('\n\n').replace(/\n{3,}/g, '\n\n'),
-    html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.45;color:#111;max-width:620px">${html.join('\n')}</div>`,
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.45;color:#111;max-width:620px">`
+      + `${logoCid ? `<p style="margin:0 0 16px"><img src="cid:${logoCid}" alt="" style="max-height:70px;max-width:260px"></p>` : ''}${html.join('\n')}</div>`,
   };
 }
 
@@ -77,9 +78,10 @@ function termsNote(est) {
  * @param {'proposal'|'confirmation'|'invoice'} kind
  * @param {object} est       estimate as returned by loadEstimate (job, customer, origin, destination, price, closeout, payments)
  * @param {object} settings  company settings
+ * @param {object} [opts]    { logoCid }: content id of an inline logo attachment, if there is one
  * @returns {{subject:string, text:string, html:string}}
  */
-function renderEmail(kind, est, settings) {
+function renderEmail(kind, est, settings, { logoCid = null } = {}) {
   const { job, customer } = est;
   const company = settings.company_name || 'Your moving company';
   const greeting = `Dear ${customer.first_name || customerName(customer)},`;
@@ -118,7 +120,7 @@ function renderEmail(kind, est, settings) {
   } else {
     throw new Error(`Unknown document ${kind}`);
   }
-  return { subject, ...compose(blocks) };
+  return { subject, ...compose(blocks, logoCid) };
 }
 
 module.exports = { renderEmail };

@@ -1,5 +1,6 @@
 // Estimates (the legacy "Estimates" form): customer + addresses + pricing on one record,
 // plus the reference data the form needs (settings, rates, item catalog, customer search).
+const express = require('express');
 const { tx } = require('./db');
 const { HttpError, EMAIL_RE, today } = require('./http');
 const { priceJob, validateEstimateTerms, hoursBetween, closeoutPrice } = require('./pricing');
@@ -103,7 +104,37 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
   // ------------------------------------------------------------ settings + rates
   const readSettings = () => ({ ...DEFAULT_SETTINGS, ...Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value])) });
 
-  app.get('/api/settings', (req, res) => res.json({ settings: readSettings(), rate_card: currentRateCard() }));
+  const logoInfo = () => db.prepare('SELECT mime, length(data) AS bytes, updated_at FROM files WHERE key = ?').get('logo') ?? null;
+  app.get('/api/settings', (req, res) => res.json({ settings: readSettings(), rate_card: currentRateCard(), logo: logoInfo() }));
+
+  // ------------------------------------------------------------ company logo
+  // Raster images only: SVG can carry scripts. The type is checked from the file's first bytes, not trusted from the browser.
+  const LOGO_TYPES = {
+    'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+    'image/gif': (b) => b.subarray(0, 4).toString('latin1') === 'GIF8',
+    'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  };
+  const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+  app.put('/api/settings/logo', express.raw({ type: () => true, limit: MAX_LOGO_BYTES }), (req, res) => {
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const mime = Object.keys(LOGO_TYPES).find((t) => LOGO_TYPES[t](buf));
+    if (!buf.length) throw new HttpError(400, 'Choose an image file');
+    if (!mime) throw new HttpError(415, 'The logo must be a PNG, JPEG, GIF or WebP image');
+    db.prepare(`INSERT INTO files (key, mime, data) VALUES ('logo', ?, ?)
+      ON CONFLICT(key) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`).run(mime, buf);
+    res.json({ logo: logoInfo() });
+  });
+  app.get('/api/settings/logo', (req, res) => {
+    const f = db.prepare('SELECT mime, data FROM files WHERE key = ?').get('logo');
+    if (!f) throw new HttpError(404, 'No logo uploaded');
+    res.set({ 'Content-Type': f.mime, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
+    res.send(Buffer.from(f.data));
+  });
+  app.delete('/api/settings/logo', (req, res) => {
+    db.prepare("DELETE FROM files WHERE key = 'logo'").run();
+    res.json({ logo: null });
+  });
 
   app.put('/api/settings', (req, res) => {
     const input = req.body.settings || {};
@@ -442,8 +473,10 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
     const to = est.customer.email;
     if (!to) return { sent: false, reason: 'The customer has no email address' };
     if (!mailer?.configured) return { sent: false, reason: 'Email is not set up yet (SMTP settings missing)' };
-    const msg = renderEmail(kind, est, readSettings());
-    await mailer.send({ to, ...msg });
+    const logo = db.prepare("SELECT mime, data FROM files WHERE key = 'logo'").get();
+    const msg = renderEmail(kind, est, readSettings(), { logoCid: logo ? 'company-logo' : null });
+    const attachments = logo ? [{ filename: `logo.${logo.mime.split('/')[1]}`, content: Buffer.from(logo.data), contentType: logo.mime, cid: 'company-logo' }] : undefined;
+    await mailer.send({ to, ...msg, attachments });
     db.prepare('INSERT INTO job_events (job_id, from_status, to_status, note, actor) VALUES (?, ?, ?, ?, ?)')
       .run(jobId, est.job.status, est.job.status, `${DOCUMENT_LABELS[kind]} emailed to ${to}`, actor);
     return { sent: true, to };

@@ -48,6 +48,16 @@
 
     <section class="card">
       <h2>Company &amp; proposal</h2>
+      <div class="logo-box">
+        <div class="logo-preview" id="logoPreview"><span class="muted small">No logo yet</span></div>
+        <div>
+          <label class="button" for="logoFile">Upload logo…</label>
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <button type="button" id="logoRemove" hidden>Remove</button>
+          <p class="muted small">Shown on proposals, invoices and customer emails. PNG or JPEG, up to 2 MB; a wide logo on a
+            white or transparent background prints best.</p>
+        </div>
+      </div>
       <form id="companyForm" novalidate>
         <div class="fields two">
           <label class="span2">Company name <input name="company_name"></label>

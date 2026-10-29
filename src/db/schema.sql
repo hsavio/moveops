@@ -384,3 +384,11 @@ CREATE TABLE IF NOT EXISTS crew_payouts (
   UNIQUE (crew_member_id, week_start)
 );
 CREATE INDEX IF NOT EXISTS idx_crew_payouts_date ON crew_payouts(pay_date);
+
+-- Small uploaded files, e.g. the company logo (key 'logo').
+CREATE TABLE IF NOT EXISTS files (
+  key         TEXT PRIMARY KEY,
+  mime        TEXT NOT NULL,
+  data        BLOB NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

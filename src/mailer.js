@@ -14,9 +14,9 @@ function createMailer(env = process.env, transport) {
 
   return {
     configured,
-    async send({ to, subject, text, html }) {
+    async send({ to, subject, text, html, attachments }) {
       if (!transporter) throw Object.assign(new Error('Email is not configured: set SMTP_HOST, SMTP_USER and SMTP_PASS'), { status: 503 });
-      return transporter.sendMail({ from, to, subject, text, html });
+      return transporter.sendMail({ from, to, subject, text, html, attachments });
     },
   };
 }

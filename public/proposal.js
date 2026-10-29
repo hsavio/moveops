@@ -19,7 +19,7 @@ function addressBlock(label, a) {
   </div>`;
 }
 
-function render(est, settings) {
+function render(est, settings, logo) {
   const { job, customer: c, price } = est;
   const name = c.company_name || [c.first_name, c.last_name].filter(Boolean).join(' ');
   const phones = [['Home', c.phone], ['Cell', c.cell_phone], ['Work', c.work_phone && `${c.work_phone}${c.work_ext ? ` x${c.work_ext}` : ''}`],
@@ -37,6 +37,7 @@ function render(est, settings) {
   $('#doc').innerHTML = `
     <header class="doc-head">
       <div class="company">
+        ${logo ? `<img class="logo" src="/api/settings/logo?v=${encodeURIComponent(logo.updated_at)}" alt="${esc(settings.company_name)}">` : ''}
         <strong>${esc(settings.company_name || 'Your company name')}</strong><br>
         ${[settings.company_address, settings.company_city_state_zip, settings.company_phone && `Phone ${settings.company_phone}`,
           settings.company_email, settings.dot_number && `DOT# ${settings.dot_number}`].filter(Boolean).map(esc).join('<br>')}
@@ -125,7 +126,7 @@ $('#backLink').href = `estimate.html?id=${id}`;
 (async () => {
   try {
     const [est, s] = await Promise.all([api(`/api/estimates/${id}`), api('/api/settings')]);
-    render(est, s.settings);
+    render(est, s.settings, s.logo);
   } catch (err) {
     $('#doc').innerHTML = `<p class="error">${esc(err.message)}</p>`;
   }

@@ -335,6 +335,7 @@ function createApp(db, services = {}) {
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
+    if (err.type === 'entity.too.large') err.message = 'That file is too large (2 MB at most)';
     const status = err.status || 500;
     if (status === 500) console.error(err);
     res.status(status).json({ error: err.message, ...err.details });

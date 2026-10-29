@@ -46,3 +46,4 @@ table.lines tfoot .total td { font-weight: bold; border-top: 2px solid var(--ink
   .doc { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
   section, .parties { break-inside: avoid; }
 }
+.company .logo { display: block; max-height: 0.8in; max-width: 2.8in; margin-bottom: 6px; object-fit: contain; }

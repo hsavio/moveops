@@ -107,7 +107,10 @@ for setup, API and import details; this file holds context and decisions.
    ScheduledDate imported as one), Unpaid Moves (default all time), Booking Commission (agent commission_percent of
    closed-or-quoted total; cancelled moves earn none; mark paid). Agents managed in Settings.
    Personnel + payroll done (Crew and Payroll pages).
-   Next: logo upload for proposals/letters/emails; office logins (admin/office roles); extra stops.
+   Logo done: uploaded in Settings (PNG/JPEG/GIF/WebP by magic bytes, 2 MB, SVG refused), stored in `files`,
+   printed on proposals/invoices and embedded in customer emails as an inline (cid) attachment. Use it on
+   letters too once the legacy Letters table arrives.
+   Next: office logins (admin/office roles); extra stops.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).

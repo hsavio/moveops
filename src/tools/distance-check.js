@@ -2,8 +2,8 @@
 // reach geocoding.geo.census.gov):
 //   npm run distance-check -- "<from address>" "<to address>" ["<from>" "<to>" ...]
 //   npm run distance-check -- --file pairs.txt     one pair per line: from | to   (# comments ok)
-// For each pair it prints the estimated miles, whether street-level or ZIP-centre matching was used,
-// and a Google Maps link so the estimate can be compared with the real driving distance.
+// For each pair it prints the miles, whether they came from Google Routes or the free estimate, and a
+// Google Maps link to compare with.
 const fs = require('node:fs');
 const { openDb } = require('../db');
 const { createDistanceService, directionsUrl } = require('../maps');
@@ -35,7 +35,7 @@ async function main() {
       const res = await fetch(CENSUS_PING, { signal: AbortSignal.timeout(8000) });
       console.log(`Census geocoder reachable: ${res.ok ? 'yes' : `no (HTTP ${res.status})`}`);
     } catch (err) {
-      console.log(`Census geocoder reachable: no (${err.cause?.code || err.message}); results below use ZIP centres`);
+      console.log(`Census geocoder reachable: no (${err.cause?.code || err.message})`);
     }
   }
 
@@ -46,8 +46,7 @@ async function main() {
       const r = await svc.distance(from, to);
       console.log(r.method === 'route'
         ? `  ${r.miles} mi driving, ${r.minutes} min (Google Routes)`
-        : `  ${r.miles} mi estimated (straight ${r.straight_miles} mi), matched by ${r.method === 'address' ? 'street address' : 'ZIP centre'}`);
-      console.log(`  from: ${r.from}\n  to:   ${r.to}`);
+        : `  ${r.miles} mi estimated (straight ${r.straight_miles} mi × ${r.road_factor})`);
     } catch (err) {
       failed++;
       console.log(`  ERROR: ${err.message}`);

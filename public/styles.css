@@ -128,7 +128,7 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
 .crew-row { display: flex; align-items: center; gap: 4px; }
 .crew-row label { flex: 1; }
 .grid td:first-child strong { white-space: nowrap; }
-.zip-note { margin: -4px 0 0; min-height: 1em; }
+.distance-note { margin: -4px 0 0; min-height: 1em; }
 .slot-pick { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; }
 .link-btn { display: block; margin-top: 6px; border: 0; background: none; padding: 0; color: var(--accent); font-size: 12px; }
 .link-btn:hover { text-decoration: underline; }
@@ -192,6 +192,10 @@ tr.clickable { cursor: pointer; }
 .suggest li { padding: 6px 8px; border-radius: 6px; display: grid; }
 .suggest li[data-i] { cursor: pointer; }
 .suggest li[data-i]:hover, .suggest li[data-i]:focus { background: var(--accent-soft); outline: none; }
+.stop { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px dashed var(--border); }
+.stop-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.stop-head select { width: auto; }
+.stop-head .grow { flex: 1; }
 .distance-row { display: flex; gap: 8px; align-items: end; margin-top: 12px; }
 .distance-row label { flex: 1; }
 .segmented { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }

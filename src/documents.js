@@ -47,14 +47,20 @@ function compose(blocks, logoCid) {
   };
 }
 
+// From, any extra stops in order, To.
+function routeRows(est) {
+  return [['From', oneLine(est.origin)],
+    ...(est.stops ?? []).map((s, i) => [`Stop ${i + 1} (${s.kind === 'dropoff' ? 'drop-off' : 'pickup'})`, oneLine(s)]),
+    ['To', oneLine(est.destination)]];
+}
+
 function moveRows(est) {
   const { job } = est;
   return [
     ['Estimate number', job.job_number],
     ['Move date', fmtDate(job.move_date)],
     ['Arrival', arrival(job)],
-    ['From', oneLine(est.origin)],
-    ['To', oneLine(est.destination)],
+    ...routeRows(est),
     ...(job.pricing_method === 'hourly' ? [['Crew', `${job.crew_size} movers`]] : []),
   ];
 }
@@ -113,7 +119,7 @@ function renderEmail(kind, est, settings, { logoCid = null } = {}) {
     if (paid) lines.push(['Payments received', money(-paid)], ['Balance due', money(total - paid), true]);
     const timeRows = job.actual_start_time ? [['Time on the job', `${fmt12(job.actual_start_time)} to ${job.actual_end_time ? fmt12(job.actual_end_time) : '?'}`]] : [];
     blocks = [{ p: greeting }, { p: `Thank you for moving with ${company}. Here is your invoice.` },
-      { rows: [['Invoice number', job.job_number], ['Move date', fmtDate(job.move_date)], ...timeRows, ['From', oneLine(est.origin)], ['To', oneLine(est.destination)]] },
+      { rows: [['Invoice number', job.job_number], ['Move date', fmtDate(job.move_date)], ...timeRows, ...routeRows(est)] },
       { h: 'Charges' }, { lines },
       ...(price.capped ? [{ p: `Capped at the not-to-exceed amount of ${money(job.not_to_exceed_cents)}.` }] : []),
       { p: total - paid > 0 ? `Balance due: ${money(total - paid)}.` : 'Paid in full. Thank you!' }, { p: signature }, { small: settings.proposal_terms }];

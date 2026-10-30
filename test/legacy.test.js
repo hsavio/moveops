@@ -31,12 +31,6 @@ test('arrival times: ranges without am/pm and exact times', () => {
   assert.equal(t.arrivalWindow('whenever'), null);
 });
 
-test('ZIP rows: float ZIPs are zero-padded and radians become degrees', () => {
-  const z = t.zipCode({ ZipCode: '210.0', Latitude: '0.751743', Longitude: '-1.235049', Population: '0', City: 'Portsmouth', State: 'NH' });
-  assert.equal(z.zip, '00210');
-  assert.ok(Math.abs(z.latitude - 43.0717) < 1e-3 && Math.abs(z.longitude + 70.7631) < 1e-3);
-});
-
 test('adjustment categories', () => {
   const cat = (d, a) => t.adjustmentCategory(d, a);
   assert.equal(cat('McBride Tip', 100), 'tip');
@@ -61,7 +55,6 @@ test('import is idempotent and links adjustments to placeholder crew', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'legacy-'));
   fs.writeFileSync(path.join(dir, 'abc-AdvertisingCodes.csv'), 'AdvertisingCode\r\nRefferal\r\nRadio\r\n');
   fs.writeFileSync(path.join(dir, 'abc-ArrivalTimes.csv'), 'ArrivalTime\r\n8:00 - 9:00\r\n12:00 Noon\r\n');
-  fs.writeFileSync(path.join(dir, 'abc-Cities.csv'), 'ZipCode,Latitude,Longitude,Population,City,State\n501.0,0.712361,-1.274886,0,Holtsville,NY\n');
   fs.writeFileSync(path.join(dir, 'abc-Agents.csv'), 'AgentID,BusinessName,FirstName,LastName,Address,City,State,Zip,BusinessPhone,AlternatePhone,FaxNumber\r\n');
   fs.writeFileSync(path.join(dir, 'abc-Adjustments.csv'),
     'AdjustmentID,PersonnelID,AdjustmentDescription,AdjustmentAmount,AdjustmentDate\n15,5,Pay Advance 11/18,-200,2013-11-15\n20,5,"McBride Tip, cash",100,2013-12-06\n');
@@ -73,7 +66,6 @@ test('import is idempotent and links adjustments to placeholder crew', () => {
   const count = (tbl) => db.prepare(`SELECT count(*) AS n FROM ${tbl}`).get().n;
   assert.equal(count('advertising_sources'), 2);
   assert.equal(count('arrival_windows'), 2);
-  assert.equal(count('zip_codes'), 1);
   assert.equal(count('crew_adjustments'), 2);
   assert.equal(count('crew_members'), 1);
   const crew = db.prepare('SELECT * FROM crew_members').get();

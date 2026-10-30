@@ -55,9 +55,8 @@ runs without it and tells you what's missing.
 |---|---|
 | `GOOGLE_MAPS_API_KEY` | Google Routes API key for real driving distances. Empty = free estimate only. See *Distances*. |
 | `GOOGLE_ROUTES_MONTHLY_LIMIT` | Most Google Routes requests per calendar month before falling back to the estimate (default `5000`). |
-| `GEOCODER` | `census` (default) or `off`. See *Distances* below. |
 | `ROAD_DISTANCE_FACTOR` | Straight-line miles are multiplied by this to estimate road miles (default `1.2`). |
-| `YARD_ADDRESS` | First stop of the directions sent to crews (yard → pickup → drop-off). |
+| `YARD_ADDRESS` | First stop of the directions sent to crews (yard → pickup → extra stops → drop-off). |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Emailing customers (proposal, booking confirmation, invoice) and crew directions. For Gmail / Google Workspace use `smtp.gmail.com`, port 465 and an app password. |
 
 ## Distances
@@ -76,8 +75,13 @@ As a second safety net, set a daily quota on the Routes API (APIs & Services →
 **Free estimate (fallback).** If there is no key, the monthly limit is reached or Google fails, each address is located with the **US Census Bureau geocoder** (free, no API key,
 no account), cached in `geocode_cache` so every address is looked up only once. Miles are the straight-line
 distance between the two points × `ROAD_DISTANCE_FACTOR` (roads run about 20% longer than a straight line).
-If the geocoder can't match an address, is unreachable, or `GEOCODER=off`, the ZIP code's centre from
-`zip_codes` is used instead, so quoting keeps working offline. The calculator always shows which was used.
+If an address can't be found or the geocoder is down, the screen says so and the office types the miles in.
+The calculator always shows which method was used.
+
+**Extra stops.** An estimate can have up to 10 stops between origin and destination (a second pickup, a
+storage unit, a split drop-off), each marked pickup or drop-off, in driving order. The distance covers the
+whole route; Google allows 10 stops in between on the free Essentials tier. Stops appear on the proposal,
+invoice, customer emails and crew directions. Stairs and long walks are recorded per stop, not charged.
 
 The free estimate is not a driving route. That suits this business: the legacy app recorded mileage but
 billed a flat trip charge (see *Estimates* below).
@@ -133,8 +137,7 @@ customers 1─* jobs ─┬─ origin/destination → addresses
 | GET | `/api/rate-card` | Current rate card |
 | POST | `/api/quote/preview` | Run the pricing engine (`originAddress`/`destinationAddress` fill in distance) |
 | GET | `/api/lookups` | Advertising sources, arrival windows, agents |
-| GET | `/api/zip/:zip` | City/state for a ZIP |
-| GET | `/api/distance?from=&to=` | Estimated road miles between two addresses (Census geocoder, ZIP fallback) |
+| GET | `/api/distance?from=&to=[&stop=...]` | Miles along the route, with optional extra stops in order (Google Routes, or the free estimate) |
 | GET | `/api/jobs/:id/directions` | Route stops, Google Maps link and email preview for the crew |
 | POST | `/api/jobs/:id/directions/send` | `{recipients: [{crewId, email}]}`. Emails directions to crew |
 | PATCH | `/api/crew/:id` | `{email, phone}` |
@@ -190,7 +193,6 @@ Use a separate database for real data: `DB_FILE=data/live.db npm run import -- <
 |---|---|---|
 | AdvertisingCodes | `advertising_sources` | Cleaned labels (`Refferal` → Referral); original spelling kept in `legacy_value` |
 | ArrivalTimes | `arrival_windows` | Ranges have no am/pm; hours 1–6 are read as pm |
-| Cities | `zip_codes` | ZIPs were floats (`210.0` → `00210`); coordinates converted from radians to degrees |
 | Agents | `agents` | Export was empty; jobs can link to an agent via `jobs.agent_id` |
 | Adjustments | `crew_adjustments` | Category inferred from the description; unknown `PersonnelID`s get inactive placeholder crew until Personnel is imported |
 | Personnel | `crew_members` | Matched by `PersonnelID` when present, otherwise by name. SSN/bank columns are never read |
@@ -219,7 +221,6 @@ pattern, and never reads SSN or bank columns. Neither should ever be stored in t
 
 ### Before launch
 
-1. Re-export **Cities/Zip** in full: the current export stops at 10,000 rows (ZIP 24595), so none of the Texas ZIPs are present.
-2. Export **Personnel** with its `PersonnelID` so payroll adjustments link to real names.
-3. Export **Items**, **Inventory** and **Letters** (they reference Estimates).
-4. Review the imported rate card.
+1. Export **Personnel** with its `PersonnelID` so payroll adjustments link to real names.
+2. Export **Items**, **Inventory** and **Letters** (they reference Estimates).
+3. Review the imported rate card.

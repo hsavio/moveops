@@ -57,28 +57,6 @@ function arrivalWindow(legacyValue, sortOrder = 0) {
   return null;
 }
 
-// ---------------------------------------------------------------- Cities
-// Legacy stored ZIPs as floats ("210.0" = 00210) and coordinates in radians.
-const RAD_TO_DEG = 180 / Math.PI;
-
-function zipCode(row) {
-  const zipNum = Number(row.ZipCode);
-  const lat = Number(row.Latitude);
-  const lon = Number(row.Longitude);
-  if (!Number.isInteger(zipNum) || zipNum <= 0 || zipNum > 99999) return null;
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !blank(row.City) || !blank(row.State)) return null;
-  // Already-degree values (|lat| > π/2) are passed through unchanged.
-  const toDeg = (v, limit) => (Math.abs(v) <= limit ? v * RAD_TO_DEG : v);
-  return {
-    zip: String(zipNum).padStart(5, '0'),
-    city: row.City.trim(),
-    state: row.State.trim().toUpperCase(),
-    latitude: Number(toDeg(lat, Math.PI / 2).toFixed(6)),
-    longitude: Number(toDeg(lon, Math.PI).toFixed(6)),
-    population: Number.isFinite(Number(row.Population)) ? Math.round(Number(row.Population)) : null,
-  };
-}
-
 // ---------------------------------------------------------------- Agents
 function agent(row) {
   const a = {
@@ -359,6 +337,6 @@ function personnel(row) {
 }
 
 module.exports = {
-  advertisingSource, arrivalWindow, zipCode, agent, adjustment, adjustmentCategory,
+  advertisingSource, arrivalWindow, agent, adjustment, adjustmentCategory,
   estimate, personnel, moneyCents, usDate, accessTime, scrubSensitive, digits,
 };

@@ -17,7 +17,6 @@ const SIGNATURES = [
   ['Estimates', ['estimateid', 'movedate']],
   ['Agents', ['agentid', 'businessname']],
   ['Adjustments', ['adjustmentid', 'personnelid']],
-  ['Cities', ['zipcode', 'latitude', 'longitude']],
   ['ArrivalTimes', ['arrivaltime']],
   ['AdvertisingCodes', ['advertisingcode']],
   ['Personnel', ['lastname', 'firstname']],
@@ -57,21 +56,6 @@ const importers = {
       stmt.run(w.label, w.start_time, w.end_time, w.sort_order, w.legacy_value);
       report.imported++;
     });
-  },
-
-  Cities(db, rows, report) {
-    const stmt = db.prepare(`INSERT INTO zip_codes (zip, city, state, latitude, longitude, population) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(zip) DO UPDATE SET city = excluded.city, state = excluded.state, latitude = excluded.latitude,
-        longitude = excluded.longitude, population = excluded.population`);
-    for (const r of rows) {
-      const z = t.zipCode(r);
-      if (!z) { report.skipped++; continue; }
-      stmt.run(z.zip, z.city, z.state, z.latitude, z.longitude, z.population);
-      report.imported++;
-    }
-    if (rows.length === 10000) {
-      report.warnings.push('Exactly 10,000 rows: the export looks truncated by a row limit. Re-export the full table.');
-    }
   },
 
   Agents(db, rows, report) {
@@ -220,7 +204,7 @@ const importers = {
 };
 
 // Dependency order: lookups first, then rows that reference them.
-const ORDER = ['AdvertisingCodes', 'ArrivalTimes', 'Cities', 'Agents', 'Personnel', 'Adjustments', 'Estimates'];
+const ORDER = ['AdvertisingCodes', 'ArrivalTimes', 'Agents', 'Personnel', 'Adjustments', 'Estimates'];
 
 // Access exports Windows-1252 text; fall back to it when the file is not valid UTF-8.
 function readText(file) {

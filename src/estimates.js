@@ -7,11 +7,13 @@ const { priceJob, validateEstimateTerms, hoursBetween, closeoutPrice } = require
 const { renderEmail } = require('./documents');
 const { scrubSensitive } = require('./legacy/transform');
 const { DEFAULT_SETTINGS } = require('./db/defaults');
+const { MAX_STOPS } = require('./maps');
 
 const CUSTOMER_FIELDS = ['kind', 'first_name', 'last_name', 'company_name', 'email', 'phone', 'cell_phone', 'work_phone',
   'work_ext', 'new_phone', 'fax', 'advertising_source'];
 const ADDRESS_FIELDS = ['line1', 'line2', 'city', 'state', 'postal_code', 'description'];
 const ADDRESS_COUNTS = ['stair_flights', 'long_walks', 'elevator_floors'];
+const STOP_KINDS = ['pickup', 'dropoff'];
 
 // Job fields the form may set, with their types.
 const JOB_FIELDS = {
@@ -288,6 +290,8 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
       customer: db.prepare('SELECT * FROM customers WHERE id = ?').get(job.customer_id),
       origin: addressOut(job.origin_address_id && addr.get(job.origin_address_id)),
       destination: addressOut(job.destination_address_id && addr.get(job.destination_address_id)),
+      stops: db.prepare('SELECT address_id, kind FROM job_stops WHERE job_id = ? ORDER BY sort_order, id').all(id)
+        .map((s) => ({ ...addressOut(addr.get(s.address_id)), kind: s.kind })),
       items,
       services,
       price: priceJob(job, opts),
@@ -368,6 +372,13 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
       };
       const originId = saveAddress(body.origin, existing?.origin_address_id);
       const destinationId = saveAddress(body.destination, existing?.destination_address_id);
+      // Extra stops (left as they are when the request has no stops list). Blank stops are dropped.
+      let stops = null;
+      if (Array.isArray(body.stops)) {
+        stops = body.stops.map((s) => ({ kind: s?.kind ?? 'pickup', address_id: saveAddress(s) })).filter((s) => s.address_id);
+        if (stops.length > MAX_STOPS) throw new HttpError(400, `At most ${MAX_STOPS} extra stops`);
+        if (stops.some((s) => !STOP_KINDS.includes(s.kind))) throw new HttpError(400, 'Each stop is a pickup or a drop-off');
+      }
 
       const job = { ...NOT_NULL_DEFAULTS, ...(existing || {}), ...jobIn, customer_id: customerId, origin_address_id: originId, destination_address_id: destinationId };
       // A fixed or itemized price is a guaranteed (binding) price by definition.
@@ -392,6 +403,12 @@ function registerEstimateRoutes(app, db, { currentRateCard, TRANSITIONS, mailer 
           .run(...cols.map((k) => job[k] ?? null), nextJobNumber(db), status, card?.id ?? null).lastInsertRowid;
         db.prepare(`INSERT INTO job_events (job_id, from_status, to_status, note, actor) VALUES (?, NULL, ?, 'Estimate created', ?)`)
           .run(jobId, status, body.actor ?? 'office');
+      }
+
+      if (stops) {
+        db.prepare('DELETE FROM job_stops WHERE job_id = ?').run(jobId);
+        const insStop = db.prepare('INSERT INTO job_stops (job_id, address_id, kind, sort_order) VALUES (?, ?, ?, ?)');
+        stops.forEach((s, i) => insStop.run(jobId, s.address_id, s.kind, i));
       }
 
       db.prepare('DELETE FROM job_items WHERE job_id = ?').run(jobId);

@@ -61,7 +61,11 @@ function render(est, settings, logo) {
       ${addressBlock('Origin', est.origin)}
       ${addressBlock('Destination', est.destination)}
     </section>
-    <p class="small">Unless otherwise noted, movers will proceed directly to the destination after loading.</p>
+    ${est.stops?.length ? `<section class="parties stops">
+      ${est.stops.map((s, i) => addressBlock(`Stop ${i + 1}: ${s.kind === 'dropoff' ? 'drop-off' : 'pickup'}`, s)).join('')}
+    </section>
+    <p class="small">Movers will go from the origin to the stops above in order, then to the destination.</p>`
+    : '<p class="small">Unless otherwise noted, movers will proceed directly to the destination after loading.</p>'}
 
     ${isInvoice ? '' : `
     <section class="letter">

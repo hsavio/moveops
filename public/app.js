@@ -162,20 +162,21 @@ async function updateQuote() {
   }
 }
 
-// Fill distance from the two addresses: an estimate of road miles from the addresses' coordinates
-// (free Census geocoder) or, failing that, their ZIP codes. Runs on change, not every keystroke.
+// Fill distance from the two addresses: Google driving miles, or the free estimate from the addresses'
+// coordinates (see README, Distances). Runs on change, not every keystroke.
 async function updateDistance() {
   const form = $('#calcForm');
   const from = form.originAddress.value.trim();
   const to = form.destinationAddress.value.trim();
-  const note = $('#zipNote');
+  const note = $('#calcDistanceNote');
   if (!from || !to) { note.textContent = ''; return; }
   note.textContent = 'Looking up distance…';
   try {
     const d = await api(`/api/distance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     form.distanceMiles.value = d.miles;
-    note.textContent = `≈ ${d.miles} mi by road (${d.straight_miles} mi straight × ${d.road_factor}), `
-      + (d.method === 'address' ? 'from the street addresses' : `from ZIP code centres: ${d.from} → ${d.to}`);
+    note.textContent = d.method === 'route'
+      ? `${d.miles} mi driving, about ${d.minutes} min (Google route)`
+      : `≈ ${d.miles} mi by road (${d.straight_miles} mi straight × ${d.road_factor}), estimated from the addresses`;
     updateQuote();
   } catch (err) {
     note.textContent = err.message;

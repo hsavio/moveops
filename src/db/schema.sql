@@ -27,17 +27,8 @@ CREATE TABLE IF NOT EXISTS arrival_windows (
   active        INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))
 );
 
--- ZIP code directory for address autofill and distance pricing. Coordinates in degrees
--- (the legacy Cities table stored radians).
-CREATE TABLE IF NOT EXISTS zip_codes (
-  zip         TEXT PRIMARY KEY,                 -- always 5 characters, zero-padded
-  city        TEXT NOT NULL,
-  state       TEXT NOT NULL,
-  latitude    REAL NOT NULL,
-  longitude   REAL NOT NULL,
-  population  INTEGER
-);
-CREATE INDEX IF NOT EXISTS idx_zip_codes_city ON zip_codes(state, city);
+-- The ZIP code directory (legacy Cities table) is no longer used: distances come from street addresses.
+DROP TABLE IF EXISTS zip_codes;
 
 -- Referring agents (realtors, relocation companies, partner movers).
 CREATE TABLE IF NOT EXISTS agents (
@@ -357,6 +348,17 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   matched_address  TEXT,
   fetched_at       TEXT NOT NULL
 );
+
+-- Extra stops between a job's origin and destination (a second pickup, a storage unit, a split drop-off),
+-- in driving order. Google's free Routes tier allows up to 10 stops in between.
+CREATE TABLE IF NOT EXISTS job_stops (
+  id          INTEGER PRIMARY KEY,
+  job_id      INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  address_id  INTEGER NOT NULL REFERENCES addresses(id),
+  kind        TEXT NOT NULL DEFAULT 'pickup' CHECK (kind IN ('pickup','dropoff')),
+  sort_order  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_job_stops_job ON job_stops(job_id, sort_order);
 
 -- Driving distances from the Google Routes API (Compute Routes Essentials), keyed by the normalised
 -- "from|to" pair, so a repeated quote costs no extra request.

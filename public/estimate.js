@@ -8,7 +8,7 @@ const form = $('#estForm');
 const field = (name) => form.elements.namedItem(name);
 const state = {
   id: Number(new URLSearchParams(location.search).get('id')) || null,
-  est: null, card: null, catalog: [], windows: [], items: [], services: [], dirty: false, customerAddresses: [],
+  est: null, card: null, catalog: [], windows: [], items: [], services: [], stops: [], dirty: false, customerAddresses: [],
 };
 
 // ------------------------------------------------------------------ rates
@@ -36,6 +36,7 @@ function onCrewChange() {
 function resetForm() {
   form.reset();
   for (const name of ['customer.id', 'origin.id', 'destination.id']) field(name).value = '';
+  state.stops = [];
 }
 
 function setFields(prefix, obj) {
@@ -60,6 +61,7 @@ function collect() {
   body.customer.id = body.customer.id ? Number(body.customer.id) : undefined;
   body.origin.id = body.origin.id ? Number(body.origin.id) : undefined;
   body.destination.id = body.destination.id ? Number(body.destination.id) : undefined;
+  body.stops = state.stops.map((s) => ({ ...s, id: s.id || undefined }));
   body.items = state.items;
   body.services = state.services.filter((s) => s.description.trim());
   return body;
@@ -76,6 +78,7 @@ function fill(est) {
   setFields('job', job);
   state.items = est.items.map(({ item_id, code, description, quantity, unit_cents, cubic_feet }) => ({ item_id, code, description, quantity, unit_cents, cubic_feet }));
   state.services = est.services.map(({ description, quantity, unit_cents }) => ({ description, quantity, unit_cents }));
+  state.stops = (est.stops || []).map((s) => ({ ...s }));
   field('job.hourly_rate_cents').dataset.auto = est.job.hourly_rate_cents === rateFor(est.job.crew_size) ? '1' : '0';
   $('#estDate').value = fmtDate(est.job.created_at);
   setCustomerLinked(est.customer, true);
@@ -98,6 +101,7 @@ function afterFill() {
   onCrewChange();
   renderItems();
   renderServices();
+  renderStops();
   updateMethodUI();
   setDirty(false);
   refreshPrice();
@@ -342,6 +346,47 @@ function renderItems() {
   $('#itemTotals').textContent = state.items.length ? `${pieces} pieces · about ${Math.round(cubes)} cu ft` : '';
 }
 
+// ------------------------------------------------------------------ extra stops
+const MAX_STOPS = 10;
+const STOP_TEXT = [['description', 'Description', 'span2'], ['line1', 'Address', 'span2'], ['line2', 'Apt / unit', 'span2'], ['city', 'City', '']];
+const STOP_COUNTS = [['stair_flights', 'Flights of stairs'], ['long_walks', 'Long walks'], ['elevator_floors', 'Elevator floors']];
+
+function renderStops() {
+  $('#stopList').innerHTML = state.stops.map((s, i) => {
+    const input = (key, attrs = '') => `<input value="${esc(s[key] ?? '')}" data-stop="${i}" data-key="${key}" ${attrs}>`;
+    return `<div class="stop">
+      <div class="stop-head">
+        <strong>Stop ${i + 1}</strong>
+        <select data-stop="${i}" data-key="kind" aria-label="Stop ${i + 1} type">
+          <option value="pickup"${s.kind === 'pickup' ? ' selected' : ''}>Pickup</option>
+          <option value="dropoff"${s.kind === 'dropoff' ? ' selected' : ''}>Drop-off</option>
+        </select>
+        <span class="grow"></span>
+        ${i ? `<button type="button" class="icon" data-up-stop="${i}" aria-label="Move stop ${i + 1} earlier">↑</button>` : ''}
+        <button type="button" class="icon" data-remove-stop="${i}" aria-label="Remove stop ${i + 1}">✕</button>
+      </div>
+      <div class="fields two">
+        ${STOP_TEXT.map(([key, label, cls]) => `<label class="${cls}">${label} ${input(key)}</label>`).join('')}
+        <div class="fields two tight">
+          <label>State ${input('state', 'maxlength="2"')}</label>
+          <label>ZIP ${input('postal_code', 'inputmode="numeric" maxlength="10"')}</label>
+        </div>
+      </div>
+      <div class="fields three conditions">
+        ${STOP_COUNTS.map(([key, label]) => `<label>${label} <input type="number" min="0" value="${Number(s[key]) || 0}" data-stop="${i}" data-key="${key}"></label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  $('#stopAdd').hidden = state.stops.length >= MAX_STOPS;
+}
+
+$('#stopAdd').addEventListener('click', () => {
+  state.stops.push({ kind: 'pickup', line1: '', line2: '', city: '', state: '', postal_code: '', description: '', stair_flights: 0, long_walks: 0, elevator_floors: 0 });
+  renderStops();
+  $(`#stopList .stop:last-child input[data-key="line1"]`).focus();
+  changed();
+});
+
 function renderServices() {
   $('#serviceTable tbody').innerHTML = state.services.map((s, i) => `<tr>
       <td><input value="${esc(s.description)}" data-service="${i}" data-key="description" aria-label="Service description"></td>
@@ -375,6 +420,15 @@ form.addEventListener('click', (e) => {
   if (ri) { state.items.splice(Number(ri.dataset.removeItem), 1); renderItems(); changed(); }
   const rs = e.target.closest('[data-remove-service]');
   if (rs) { state.services.splice(Number(rs.dataset.removeService), 1); renderServices(); changed(); }
+  const rst = e.target.closest('[data-remove-stop]');
+  if (rst) { state.stops.splice(Number(rst.dataset.removeStop), 1); renderStops(); changed(); }
+  const up = e.target.closest('[data-up-stop]');
+  if (up) {
+    const i = Number(up.dataset.upStop);
+    [state.stops[i - 1], state.stops[i]] = [state.stops[i], state.stops[i - 1]];
+    renderStops();
+    changed();
+  }
   if (e.target.id === 'rateReset') {
     e.preventDefault();
     field('job.hourly_rate_cents').dataset.auto = '1';
@@ -386,24 +440,30 @@ form.addEventListener('click', (e) => {
     setFields('customer', { id: '' });
     setFields('origin', { id: '' });
     setFields('destination', { id: '' });
+    state.stops.forEach((s) => { s.id = undefined; });
     state.customerAddresses = [];
     setCustomerLinked(null, false);
     changed();
   }
 });
 
-// ------------------------------------------------------------------ distance (free estimate, see README)
+// ------------------------------------------------------------------ distance (origin -> stops -> destination, see README)
 $('#distanceBtn').addEventListener('click', async () => {
-  const addr = (p) => ['line1', 'city', 'state', 'postal_code'].map((k) => field(`${p}.${k}`).value.trim()).filter(Boolean).join(', ');
+  const ADDR_KEYS = ['line1', 'city', 'state', 'postal_code'];
+  const addr = (p) => ADDR_KEYS.map((k) => field(`${p}.${k}`).value.trim()).filter(Boolean).join(', ');
   const [from, to] = [addr('origin'), addr('destination')];
   if (!from || !to) { $('#distanceNote').textContent = 'Enter both addresses first.'; return; }
+  const stops = state.stops.map((s) => ADDR_KEYS.map((k) => String(s[k] ?? '').trim()).filter(Boolean).join(', ')).filter(Boolean);
+  const params = new URLSearchParams({ from, to });
+  for (const s of stops) params.append('stop', s);
   $('#distanceNote').textContent = 'Estimating…';
   try {
-    const d = await api(`/api/distance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const d = await api(`/api/distance?${params}`);
     field('job.distance_miles').value = d.miles;
+    const via = stops.length ? ` with ${stops.length} stop${stops.length > 1 ? 's' : ''}` : '';
     $('#distanceNote').textContent = d.method === 'route'
-      ? `${d.miles} mi driving, about ${d.minutes} min (Google route)`
-      : `≈ ${d.miles} mi by road (estimated ${d.method === 'address' ? 'from the addresses' : 'from ZIP codes'})`;
+      ? `${d.miles} mi driving${via}, about ${d.minutes} min (Google route)`
+      : `≈ ${d.miles} mi by road${via} (estimated from the addresses)`;
     changed();
   } catch (err) {
     $('#distanceNote').textContent = err.message;
@@ -473,6 +533,10 @@ form.addEventListener('input', (e) => {
   if (t.dataset.item != null) {
     const it = state.items[Number(t.dataset.item)];
     it[t.dataset.key] = t.dataset.key === 'unit_cents' ? toCents(t.value) ?? 0 : Number(t.value) || 1;
+  }
+  if (t.dataset.stop != null) {
+    const s = state.stops[Number(t.dataset.stop)];
+    s[t.dataset.key] = t.type === 'number' ? Math.max(0, Number(t.value) || 0) : t.value;
   }
   if (t.dataset.service != null) {
     const s = state.services[Number(t.dataset.service)];

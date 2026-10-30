@@ -4,7 +4,7 @@ const { createApp } = require('./app');
 
 const db = openDb();
 // Only seed a brand-new database, never one holding imported legacy data.
-const isEmpty = ['customers', 'crew_members', 'zip_codes'].every((t) => db.prepare(`SELECT count(*) AS n FROM ${t}`).get().n === 0);
+const isEmpty = ['customers', 'crew_members'].every((t) => db.prepare(`SELECT count(*) AS n FROM ${t}`).get().n === 0);
 if (isEmpty) {
   seed(db);
   console.log('Empty database: loaded demo data.');

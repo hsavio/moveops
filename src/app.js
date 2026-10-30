@@ -222,15 +222,10 @@ function createApp(db, services = {}) {
     });
   });
 
-  app.get('/api/zip/:zip', (req, res) => {
-    const z = /^\d{5}$/.test(req.params.zip) && db.prepare('SELECT zip, city, state FROM zip_codes WHERE zip = ?').get(req.params.zip);
-    if (!z) throw new HttpError(404, `ZIP code ${req.params.zip} not found`);
-    res.json(z);
-  });
-
-  // ?from=&to= are street addresses (Census geocoder) or anything containing a ZIP code (fallback).
+  // ?from=&to= street addresses; optional repeated &stop= for extra stops in driving order.
   app.get('/api/distance', wrap(async (req, res) => {
-    res.json({ provider: distance.provider, ...(await distance.distance(req.query.from, req.query.to)) });
+    const stops = [req.query.stop ?? []].flat();
+    res.json({ provider: distance.provider, ...(await distance.distance(req.query.from, req.query.to, stops)) });
   }));
 
   app.get('/api/config', (req, res) => {
@@ -255,11 +250,14 @@ function createApp(db, services = {}) {
     const addr = db.prepare('SELECT * FROM addresses WHERE id = ?');
     const origin = job.origin_address_id ? addr.get(job.origin_address_id) : null;
     const destination = job.destination_address_id ? addr.get(job.destination_address_id) : null;
-    const stops = [yardAddress, fullAddress(origin), fullAddress(destination)].filter(Boolean);
+    const extra = db.prepare('SELECT address_id, kind FROM job_stops WHERE job_id = ? ORDER BY sort_order, id').all(job.id)
+      .map((s) => ({ ...addr.get(s.address_id), kind: s.kind }));
+    const stops = [yardAddress, fullAddress(origin), ...extra.map(fullAddress), fullAddress(destination)].filter(Boolean);
     const url = directionsUrl(stops);
     const crew = db.prepare(`SELECT m.id, m.first_name, m.first_name || ' ' || m.last_name AS name, m.email, jc.is_lead
       FROM job_crew jc JOIN crew_members m ON m.id = jc.crew_member_id WHERE jc.job_id = ? ORDER BY jc.is_lead DESC, m.last_name`).all(job.id);
 
+    const line = (label, a) => `${label}: ${fullAddress(a) || 'not entered'}${a && access(a) ? ` (${access(a)})` : ''}`;
     const access = (a) => [a.stair_flights && !a.has_elevator ? `${a.stair_flights} flight(s) of stairs` : null,
       a.has_elevator ? `elevator (floor ${a.floor})` : null, a.long_walks ? 'long walk' : null, a.description].filter(Boolean).join('; ');
     const day = job.move_date ? new Date(`${job.move_date}T12:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'date TBD';
@@ -275,12 +273,14 @@ function createApp(db, services = {}) {
       `Truck: ${job.trucks.map((t) => t.name).join(', ') || 'assigned at the yard'}`,
       '',
       `Customer: ${job.customer_name}${job.customer_phone ? `, ${job.customer_phone}` : ''}`,
-      `Pickup: ${fullAddress(origin) || 'not entered'}${origin && access(origin) ? ` (${access(origin)})` : ''}`,
-      `Drop-off: ${fullAddress(destination) || 'not entered'}${destination && access(destination) ? ` (${access(destination)})` : ''}`,
+      line('Pickup', origin),
+      ...extra.map((s, i) => line(`Stop ${i + 1}, ${s.kind === 'dropoff' ? 'drop-off' : 'pickup'}`, s)),
+      line('Drop-off', destination),
       job.special_items ? `Special items: ${job.special_items}` : null,
       job.notes ? `Notes: ${job.notes}` : null,
       '',
-      url ? `Directions (${yardAddress ? 'yard → pickup → drop-off' : 'pickup → drop-off'}):\n${url}` : 'Directions: not enough address details for a route.',
+      url ? `Directions (${[yardAddress && 'yard', 'pickup', extra.length && `${extra.length} stop${extra.length > 1 ? 's' : ''}`, 'drop-off'].filter(Boolean).join(' → ')}):\n${url}`
+        : 'Directions: not enough address details for a route.',
     ].filter((l) => l !== null).join('\n');
     return { job, stops, url, crew, subject, body };
   }

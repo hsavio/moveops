@@ -137,3 +137,43 @@ test('schedule lanes are crew slots; future jobs without crew are not flagged', 
   assert.equal(res.body.crew_number, 5);
   assert.equal((await call(`/api/jobs/${jobId('J-2026-00106')}/assignments`, 'PUT', { crewNumber: -1 })).status, 400);
 });
+
+// ------------------------------------------------------------ extra stops
+test('extra stops: saved in order, kept when omitted, in crew directions and the customer email', async () => {
+  const { srv, req } = await directionsServer();
+  try {
+    const stop = (line1, kind) => ({ kind, line1, city: 'Spring', state: 'TX', postal_code: '77380', stair_flights: 2 });
+    const created = await req('/api/estimates', 'POST', {
+      customer: { first_name: 'Sam', last_name: 'Ortiz', email: 'sam@example.com' },
+      origin: { line1: '12 Elm St', city: 'Spring', state: 'TX', postal_code: '77380' },
+      destination: { line1: '9 Oak Ave', city: 'Conroe', state: 'TX', postal_code: '77301' },
+      stops: [stop('7 Storage Way', 'pickup'), { kind: 'pickup', line1: '  ' }, stop('3 Daughter Ln', 'dropoff')],
+      job: { move_date: '2026-11-20', crew_size: 2, est_hours: 3, minimum_hours: 2, hourly_rate_cents: 15000, trip_charge_cents: 15000 },
+    });
+    assert.equal(created.status, 201);
+    const id = created.body.job.id;
+    assert.deepEqual(created.body.stops.map((s) => [s.line1, s.kind, s.stair_flights]), [['7 Storage Way', 'pickup', 2], ['3 Daughter Ln', 'dropoff', 2]]);
+
+    const d = (await req(`/api/jobs/${id}/directions`)).body;
+    assert.deepEqual(d.stops, ['500 Yard Rd, Spring, TX 77380', '12 Elm St, Spring, TX 77380', '7 Storage Way, Spring, TX 77380',
+      '3 Daughter Ln, Spring, TX 77380', '9 Oak Ave, Conroe, TX 77301']);
+    assert.match(d.body, /Stop 1, pickup: 7 Storage Way.*2 flight\(s\) of stairs/);
+    assert.match(d.body, /Stop 2, drop-off: 3 Daughter Ln/);
+    assert.match(d.body, /yard → pickup → 2 stops → drop-off/);
+
+    const { renderEmail } = require('../src/documents');
+    const est = (await req(`/api/estimates/${id}`)).body;
+    assert.match(renderEmail('proposal', est, {}).text, /From: 12 Elm St[\s\S]*Stop 1 \(pickup\): 7 Storage Way[\s\S]*Stop 2 \(drop-off\): 3 Daughter Ln[\s\S]*To: 9 Oak Ave/);
+
+    // Saving without a stops list leaves them alone; a new list replaces them (reordered, one removed).
+    const body = { customer: { id: est.customer.id }, origin: est.origin, destination: est.destination, job: { notes: 'x' } };
+    assert.equal((await req(`/api/estimates/${id}`, 'PUT', body)).body.stops.length, 2);
+    const reordered = await req(`/api/estimates/${id}`, 'PUT', { ...body, stops: [est.stops[1]] });
+    assert.deepEqual(reordered.body.stops.map((s) => [s.id, s.line1]), [[est.stops[1].id, '3 Daughter Ln']]);
+
+    assert.equal((await req(`/api/estimates/${id}`, 'PUT', { ...body, stops: Array.from({ length: 11 }, (_, i) => stop(`${i} A St`, 'pickup')) })).status, 400);
+    assert.equal((await req(`/api/estimates/${id}`, 'PUT', { ...body, stops: [stop('1 A St', 'storage')] })).status, 400);
+  } finally {
+    srv.close();
+  }
+});

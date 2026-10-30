@@ -6,11 +6,11 @@ for setup, API and import details; this file holds context and decisions.
 
 ## Commands
 - `npm start` / `npm run dev`: server on :3000 (auto-seeds demo data only into a completely empty DB)
-- `npm test`: node:test suite (pricing, API, legacy import, distance). Keep it green.
+- `npm test`: node:test suite (pricing, API, legacy import, distance, stops). Keep it green.
 - `npm run import -- <folder>`: import legacy CSV exports. Use a separate DB for real data: `DB_FILE=data/live.db`.
 - `npm run user -- list | reset <username> | create-admin <username>`: account recovery on the server.
 - `npm run distance-check -- "<from>" "<to>" [...]` (or `--file pairs.txt`, `from | to` per line): live test of the
-  address-to-miles lookup; prints geocoder reachability, miles, street vs ZIP match and a Maps link to compare.
+  address-to-miles lookup; prints the provider, miles (Google route or free estimate) and a Maps link to compare.
 - Config lives in `.env` (git-ignored); see `.env.example`.
 
 ## Layout
@@ -24,7 +24,7 @@ for setup, API and import details; this file holds context and decisions.
   `src/personnel.js`: crew records, adjustments, weekly payroll + payouts, year-end 1099 summary/export.
 - `src/auth.js`: password hashing, sessions, lockout, access rules (admin-only paths). `src/users.js`: login/setup/
   password/user-account routes. `src/tools/users.js`: `npm run user` recovery CLI.
-- `src/maps.js`: distance (Google Routes → Census estimate → ZIP) + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
+- `src/maps.js`: distance along origin → stops → destination (Google Routes, else Census estimate) + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
   booking confirmation, invoice) as pure text+HTML renderers.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
 - `public/`: `common.js` shared helpers; `index.html` dashboard; `estimates.html` search list; `estimate.html` the
@@ -42,7 +42,14 @@ for setup, API and import details; this file holds context and decisions.
   Essentials only (TRAFFIC_UNAWARE, field mask `routes.distanceMeters,routes.duration`, ≤10 waypoints) so it stays
   in Google's free tier (10,000/month; ~20 moves/week uses a few hundred). Cached 90 days, counted in `api_usage`,
   capped by GOOGLE_ROUTES_MONTHLY_LIMIT (5,000). No key, cap reached or Google error → free estimate: Census
-  geocoder → straight-line × ROAD_DISTANCE_FACTOR (1.2) → ZIP centres. Never add Pro/Enterprise fields or traffic.
+  geocoder → straight-line × ROAD_DISTANCE_FACTOR (1.2), summed per leg; unknown address → office types miles.
+  Never add Pro/Enterprise fields or traffic.
+- **No ZIP code data (owner, Oct 30 2026):** the legacy Cities/Zip table can't be exported and isn't needed. The ZIP
+  directory, ZIP-centre fallback, `/api/zip` and the Cities importer were removed; don't add them back. (ZIP stays
+  as an ordinary address field.)
+- **Extra stops:** `job_stops` (job, address, kind pickup|dropoff, sort_order), max 10 (Google Essentials limit).
+  Saving without a `stops` array leaves stops unchanged; an array replaces them. Stops are on the proposal,
+  invoice, customer emails and crew directions. Stairs/walks per stop recorded, not charged.
   Considered and not chosen: Google Maps Java client (app is Node; plain REST does the same), public OSRM demo
   server (not for production use), self-hosted OSRM (a server to run and update).
 - Crew emails contain a plain Google Maps **web link** (free, no API). Routes for crew are optional.
@@ -123,9 +130,8 @@ for setup, API and import details; this file holds context and decisions.
    Logins done: office staff only; roles admin (everything) / office (no crew, payroll, 1099, rates, settings changes,
    users). First-run setup creates the first admin. Tests that aren't about logins pass `requireAuth: false`
    to createApp; keep new API tests doing the same, and add admin-only paths to `adminOnlyApi` in src/auth.js.
-   Next: extra stops; Letters (waiting on the legacy Letters table).
-2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs; **urgent before launch**:
-   with no TX ZIPs the ZIP fallback fails for local addresses, so a Census outage/no-match gives an error, not miles); Personnel with
+   Extra stops done (Oct 30 2026). Next: Letters (waiting on the legacy Letters table), then launch prep.
+2. Waiting on owner: Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Google Routes **works live** (Oct 30 2026): owner's key in `.env` on their
    PC, `npm run distance-check` returned driving miles (Conroe yard → Austin). The key is IP-restricted to the
@@ -133,7 +139,7 @@ for setup, API and import details; this file holds context and decisions.
    Keys go only in the git-ignored `.env`, never `.env.example` (an earlier key leaked there and was replaced).
    Owner runs MoveOps locally: VS Code clone of hsavio/moveops, Node.js LTS, `npm install`, `npm start`.
    Census geocoder (fallback) is blocked by the cloud session's network policy; untested live.
-   Owner still to send: Items, Letters and full Zip exports.
+   Owner still to send: Items and Letters exports.
 4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1; add the server's IP to the Google key).
 5. Workflow: commit to `main` (owner's choice). Start new cloud sessions with `hsavio/moveops` selected as the
    source so GitHub access works from the start. Keep this "Open items" list current at the end of each session.

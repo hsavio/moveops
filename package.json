@@ -9,7 +9,8 @@
     "seed": "node --disable-warning=ExperimentalWarning src/db/seed.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\"",
     "import": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/legacy/import.js",
-    "user": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/tools/users.js"
+    "user": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/tools/users.js",
+    "distance-check": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/tools/distance-check.js"
   },
   "dependencies": {
     "express": "^4.22.3",

@@ -98,3 +98,65 @@ test('Google Maps directions link (plain URL, no API): yard, pickup as waypoint,
   assert.equal(url.searchParams.get('destination'), '2 Oak Ave, Conroe TX');
   assert.equal(directionsUrl(['only one stop']), null);
 });
+
+// Google Routes stand-in: records requests; answers with a route, an HTTP error, or a network failure.
+function mockRoutes({ meters = 21000, seconds = 1500, status = 200, fail = false } = {}) {
+  const calls = [];
+  const fn = async (url, opts) => {
+    calls.push({ url, opts, body: opts?.body && JSON.parse(opts.body) });
+    if (fail) throw new Error('ECONNREFUSED');
+    const json = status === 200 ? { routes: [{ distanceMeters: meters, duration: `${seconds}s` }] } : { error: { message: 'API key not valid' } };
+    return { ok: status === 200, status, json: async () => json };
+  };
+  fn.calls = calls;
+  return fn;
+}
+const quiet = { warn: () => {} };
+
+test('Google Routes: Essentials request, driving miles and minutes, cached', async () => {
+  const db = dbWithZips();
+  const fetchFn = mockRoutes({ meters: 32187, seconds: 1650 });
+  const svc = createDistanceService({ db, googleKey: 'test-key', fetchFn, logger: quiet });
+  assert.equal(svc.provider, 'google');
+  const r = await svc.distance(SPRING, CONROE);
+  assert.deepEqual(r, { miles: 20, minutes: 28, method: 'route', from: SPRING, to: CONROE });
+
+  const { url, opts, body } = fetchFn.calls[0];
+  assert.equal(url, 'https://routes.googleapis.com/directions/v2:computeRoutes');
+  assert.equal(opts.method, 'POST');
+  assert.equal(opts.headers['X-Goog-Api-Key'], 'test-key');
+  assert.equal(opts.headers['X-Goog-FieldMask'], 'routes.distanceMeters,routes.duration');
+  assert.deepEqual(body, { origin: { address: SPRING }, destination: { address: CONROE }, travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE' });
+
+  await svc.distance('1  main st, spring, tx 77380', CONROE);
+  assert.equal(fetchFn.calls.length, 1); // answered from route_cache
+  assert.equal(db.prepare('SELECT calls FROM api_usage').get().calls, 1);
+});
+
+test('Google Routes: stops at the monthly limit and falls back to the free estimate', async () => {
+  const db = dbWithZips();
+  const fetchFn = mockRoutes();
+  const svc = createDistanceService({ db, googleKey: 'k', geocoder: 'off', monthlyLimit: 1, fetchFn, logger: quiet });
+  assert.equal((await svc.distance(SPRING, CONROE)).method, 'route');
+  const r = await svc.distance('5 Pine St, Spring, TX 77380', CONROE);
+  assert.equal(r.method, 'zip');
+  assert.equal(fetchFn.calls.length, 1);
+});
+
+test('Google Routes: bad key or outage falls back to the estimate and is not cached', async () => {
+  for (const fetchFn of [mockRoutes({ status: 403 }), mockRoutes({ fail: true })]) {
+    const db = dbWithZips();
+    const svc = createDistanceService({ db, googleKey: 'k', geocoder: 'off', fetchFn, logger: quiet });
+    assert.equal((await svc.distance(SPRING, CONROE)).method, 'zip');
+    assert.equal(db.prepare('SELECT count(*) AS n FROM route_cache').get().n, 0);
+  }
+});
+
+test('no Google key: Google is never called', async () => {
+  const db = dbWithZips();
+  const fetchFn = mockCensus({ [SPRING]: [30.15, -95.47], [CONROE]: [30.31, -95.46] });
+  const svc = createDistanceService({ db, googleKey: null, fetchFn });
+  assert.equal(svc.provider, 'census');
+  assert.equal((await svc.distance(SPRING, CONROE)).method, 'address');
+  assert.ok(fetchFn.calls.every((c) => !c.url.includes('googleapis')));
+});

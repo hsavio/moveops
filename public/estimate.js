@@ -401,7 +401,9 @@ $('#distanceBtn').addEventListener('click', async () => {
   try {
     const d = await api(`/api/distance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     field('job.distance_miles').value = d.miles;
-    $('#distanceNote').textContent = `≈ ${d.miles} mi by road (${d.method === 'address' ? 'from the addresses' : 'from ZIP codes'})`;
+    $('#distanceNote').textContent = d.method === 'route'
+      ? `${d.miles} mi driving, about ${d.minutes} min (Google route)`
+      : `≈ ${d.miles} mi by road (estimated ${d.method === 'address' ? 'from the addresses' : 'from ZIP codes'})`;
     changed();
   } catch (err) {
     $('#distanceNote').textContent = err.message;

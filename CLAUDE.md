@@ -24,7 +24,7 @@ for setup, API and import details; this file holds context and decisions.
   `src/personnel.js`: crew records, adjustments, weekly payroll + payouts, year-end 1099 summary/export.
 - `src/auth.js`: password hashing, sessions, lockout, access rules (admin-only paths). `src/users.js`: login/setup/
   password/user-account routes. `src/tools/users.js`: `npm run user` recovery CLI.
-- `src/maps.js`: distance + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
+- `src/maps.js`: distance (Google Routes → Census estimate → ZIP) + Maps link. `src/mailer.js`: SMTP. `src/documents.js`: customer emails (proposal,
   booking confirmation, invoice) as pure text+HTML renderers.
 - `src/legacy/`: CSV parser, pure row transforms (`transform.js`), importer (`import.js`).
 - `public/`: `common.js` shared helpers; `index.html` dashboard; `estimates.html` search list; `estimate.html` the
@@ -38,8 +38,13 @@ for setup, API and import details; this file holds context and decisions.
 - Transforms stay pure and unit-tested; DB access stays in the importer.
 
 ## Decisions made with the owner
-- **No paid/per-lookup services.** Distance = free US Census geocoder → straight-line × ROAD_DISTANCE_FACTOR (1.2),
-  falling back to ZIP centres. Google Maps API code was removed on purpose; do not reintroduce it.
+- **Distance (owner, Oct 30 2026; replaces the earlier "no Google API" rule):** Google Routes API, Compute Routes
+  Essentials only (TRAFFIC_UNAWARE, field mask `routes.distanceMeters,routes.duration`, ≤10 waypoints) so it stays
+  in Google's free tier (10,000/month; ~20 moves/week uses a few hundred). Cached 90 days, counted in `api_usage`,
+  capped by GOOGLE_ROUTES_MONTHLY_LIMIT (5,000). No key, cap reached or Google error → free estimate: Census
+  geocoder → straight-line × ROAD_DISTANCE_FACTOR (1.2) → ZIP centres. Never add Pro/Enterprise fields or traffic.
+  Considered and not chosen: Google Maps Java client (app is Node; plain REST does the same), public OSRM demo
+  server (not for production use), self-hosted OSRM (a server to run and update).
 - Crew emails contain a plain Google Maps **web link** (free, no API). Routes for crew are optional.
 - Trucks and crew are assigned **at the yard on the morning of the job**: the schedule is laid out by crew slot
   (legacy CrewNumber), not truck; missing crew/truck is only flagged from the move date on.
@@ -122,10 +127,10 @@ for setup, API and import details; this file holds context and decisions.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs; **urgent before launch**:
    with no TX ZIPs the ZIP fallback fails for local addresses, so a Census outage/no-match gives an error, not miles); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
-3. Owner to review the imported rate card. Census geocoder still untested live: `geocoding.geo.census.gov` is
-   blocked by the cloud session's network policy (allow it in the environment's Network access settings) or run
-   `npm run distance-check` on the owner's machine with real addresses; then confirm ROAD_DISTANCE_FACTOR 1.2
-   against the Google Maps driving miles it prints.
+3. Owner to review the imported rate card. Google Routes built and tested with mocks; a live call reached Google
+   (rejected a dummy key as expected). Owner to create the API key (README *Distances*), put it in `.env`, then run
+   `npm run distance-check` with real addresses. Census geocoder (fallback) is blocked by the cloud session's
+   network policy; untested live.
    Owner still to send: Items, Letters and full Zip exports.
 4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1).
 5. Workflow: commit to `main` (owner's choice). Start new cloud sessions with `hsavio/moveops` selected as the

@@ -358,6 +358,23 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   fetched_at       TEXT NOT NULL
 );
 
+-- Driving distances from the Google Routes API (Compute Routes Essentials), keyed by the normalised
+-- "from|to" pair, so a repeated quote costs no extra request.
+CREATE TABLE IF NOT EXISTS route_cache (
+  route_key   TEXT PRIMARY KEY,
+  meters      INTEGER NOT NULL,
+  seconds     INTEGER NOT NULL,
+  fetched_at  TEXT NOT NULL
+);
+
+-- Requests sent to paid-tier APIs per calendar month (YYYY-MM), to stay inside the free allowance.
+CREATE TABLE IF NOT EXISTS api_usage (
+  month    TEXT NOT NULL,
+  service  TEXT NOT NULL,
+  calls    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (month, service)
+);
+
 -- Notes for a calendar day ("Daily Information" on the legacy Moves Schedule).
 CREATE TABLE IF NOT EXISTS day_notes (
   date        TEXT PRIMARY KEY,               -- 'YYYY-MM-DD'

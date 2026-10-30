@@ -53,6 +53,8 @@ runs without it and tells you what's missing.
 
 | Setting | Used for |
 |---|---|
+| `GOOGLE_MAPS_API_KEY` | Google Routes API key for real driving distances. Empty = free estimate only. See *Distances*. |
+| `GOOGLE_ROUTES_MONTHLY_LIMIT` | Most Google Routes requests per calendar month before falling back to the estimate (default `5000`). |
 | `GEOCODER` | `census` (default) or `off`. See *Distances* below. |
 | `ROAD_DISTANCE_FACTOR` | Straight-line miles are multiplied by this to estimate road miles (default `1.2`). |
 | `YARD_ADDRESS` | First stop of the directions sent to crews (yard → pickup → drop-off). |
@@ -60,13 +62,24 @@ runs without it and tells you what's missing.
 
 ## Distances
 
-No paid service is used. Each address is located with the **US Census Bureau geocoder** (free, no API key,
+**Driving distance (Google Routes API).** With `GOOGLE_MAPS_API_KEY` set, the calculator asks Google for the
+real driving distance and time (Compute Routes Essentials: no live traffic, only distance and duration
+requested). Google gives 10,000 of these requests free each month; at about 20 moves a week MoveOps uses a few
+hundred. Routes are cached for 90 days in `route_cache`, requests are counted per month in `api_usage`, and
+at `GOOGLE_ROUTES_MONTHLY_LIMIT` (default 5,000) MoveOps stops asking Google and uses the free estimate.
+
+Setting up the key (once): in the Google Cloud console create a project, attach a billing account (Google
+requires one even for free usage), enable **Routes API**, then create an API key restricted to the Routes API.
+As a second safety net, set a daily quota on the Routes API (APIs & Services → Routes API → Quotas, e.g.
+300 requests/day) and a budget alert.
+
+**Free estimate (fallback).** If there is no key, the monthly limit is reached or Google fails, each address is located with the **US Census Bureau geocoder** (free, no API key,
 no account), cached in `geocode_cache` so every address is looked up only once. Miles are the straight-line
 distance between the two points × `ROAD_DISTANCE_FACTOR` (roads run about 20% longer than a straight line).
 If the geocoder can't match an address, is unreachable, or `GEOCODER=off`, the ZIP code's centre from
 `zip_codes` is used instead, so quoting keeps working offline. The calculator always shows which was used.
 
-This is an estimate, not a driving route. That suits this business: the legacy app recorded mileage but
+The free estimate is not a driving route. That suits this business: the legacy app recorded mileage but
 billed a flat trip charge (see *Estimates* below).
 
 ## Dispatch workflow

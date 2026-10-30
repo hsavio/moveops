@@ -29,7 +29,7 @@ async function main() {
   }
 
   const svc = createDistanceService({ db: openDb() });
-  console.log(`Geocoder: ${svc.provider}, road factor ${svc.roadFactor}`);
+  console.log(`Distance provider: ${svc.provider}${svc.provider === 'google' ? '' : `, road factor ${svc.roadFactor}`}`);
   if (svc.provider === 'census') {
     try {
       const res = await fetch(CENSUS_PING, { signal: AbortSignal.timeout(8000) });
@@ -44,7 +44,9 @@ async function main() {
     console.log(`\n${from}  ->  ${to}`);
     try {
       const r = await svc.distance(from, to);
-      console.log(`  ${r.miles} mi (straight ${r.straight_miles} mi), matched by ${r.method === 'address' ? 'street address' : 'ZIP centre'}`);
+      console.log(r.method === 'route'
+        ? `  ${r.miles} mi driving, ${r.minutes} min (Google Routes)`
+        : `  ${r.miles} mi estimated (straight ${r.straight_miles} mi), matched by ${r.method === 'address' ? 'street address' : 'ZIP centre'}`);
       console.log(`  from: ${r.from}\n  to:   ${r.to}`);
     } catch (err) {
       failed++;

@@ -127,11 +127,13 @@ for setup, API and import details; this file holds context and decisions.
 2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs; **urgent before launch**:
    with no TX ZIPs the ZIP fallback fails for local addresses, so a Census outage/no-match gives an error, not miles); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
-3. Owner to review the imported rate card. Google Routes built and tested with mocks; a live call reached Google
-   (rejected a dummy key as expected). Owner to create the API key (README *Distances*), put it in `.env`, then run
-   `npm run distance-check` with real addresses. Census geocoder (fallback) is blocked by the cloud session's
-   network policy; untested live.
+3. Owner to review the imported rate card. Google Routes **works live** (Oct 30 2026): owner's key in `.env` on their
+   PC, `npm run distance-check` returned driving miles (Conroe yard → Austin). The key is IP-restricted to the
+   owner's network, so it can't be tested from cloud sessions; the hosting server's IP must be added at launch.
+   Keys go only in the git-ignored `.env`, never `.env.example` (an earlier key leaked there and was replaced).
+   Owner runs MoveOps locally: VS Code clone of hsavio/moveops, Node.js LTS, `npm install`, `npm start`.
+   Census geocoder (fallback) is blocked by the cloud session's network policy; untested live.
    Owner still to send: Items, Letters and full Zip exports.
-4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1).
+4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1; add the server's IP to the Google key).
 5. Workflow: commit to `main` (owner's choice). Start new cloud sessions with `hsavio/moveops` selected as the
    source so GitHub access works from the start. Keep this "Open items" list current at the end of each session.

@@ -44,14 +44,14 @@ for setup, API and import details; this file holds context and decisions.
   capped by GOOGLE_ROUTES_MONTHLY_LIMIT (5,000). No key, cap reached or Google error → free estimate: Census
   geocoder → straight-line × ROAD_DISTANCE_FACTOR (1.2), summed per leg; unknown address → office types miles.
   Never add Pro/Enterprise fields or traffic.
+  Considered and not chosen: Google Maps Java client (app is Node; plain REST does the same), public OSRM demo
+  server (not for production use), self-hosted OSRM (a server to run and update).
 - **No ZIP code data (owner, Oct 30 2026):** the legacy Cities/Zip table can't be exported and isn't needed. The ZIP
   directory, ZIP-centre fallback, `/api/zip` and the Cities importer were removed; don't add them back. (ZIP stays
   as an ordinary address field.)
 - **Extra stops:** `job_stops` (job, address, kind pickup|dropoff, sort_order), max 10 (Google Essentials limit).
   Saving without a `stops` array leaves stops unchanged; an array replaces them. Stops are on the proposal,
   invoice, customer emails and crew directions. Stairs/walks per stop recorded, not charged.
-  Considered and not chosen: Google Maps Java client (app is Node; plain REST does the same), public OSRM demo
-  server (not for production use), self-hosted OSRM (a server to run and update).
 - Crew emails contain a plain Google Maps **web link** (free, no API). Routes for crew are optional.
 - Trucks and crew are assigned **at the yard on the morning of the job**: the schedule is laid out by crew slot
   (legacy CrewNumber), not truck; missing crew/truck is only flagged from the move date on.
@@ -130,7 +130,8 @@ for setup, API and import details; this file holds context and decisions.
    Logins done: office staff only; roles admin (everything) / office (no crew, payroll, 1099, rates, settings changes,
    users). First-run setup creates the first admin. Tests that aren't about logins pass `requireAuth: false`
    to createApp; keep new API tests doing the same, and add admin-only paths to `adminOnlyApi` in src/auth.js.
-   Extra stops done (Oct 30 2026). Next: Letters (waiting on the legacy Letters table), then launch prep.
+   Extra stops done (Oct 30 2026). Next (Oct 31): owner tests the whole program on their PC; fix what they find.
+   Then Letters (waiting on the legacy Letters table) and launch prep.
 2. Waiting on owner: Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
 3. Owner to review the imported rate card. Google Routes **works live** (Oct 30 2026): owner's key in `.env` on their

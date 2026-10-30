@@ -9,6 +9,8 @@ for setup, API and import details; this file holds context and decisions.
 - `npm test`: node:test suite (pricing, API, legacy import, distance). Keep it green.
 - `npm run import -- <folder>`: import legacy CSV exports. Use a separate DB for real data: `DB_FILE=data/live.db`.
 - `npm run user -- list | reset <username> | create-admin <username>`: account recovery on the server.
+- `npm run distance-check -- "<from>" "<to>" [...]` (or `--file pairs.txt`, `from | to` per line): live test of the
+  address-to-miles lookup; prints geocoder reachability, miles, street vs ZIP match and a Maps link to compare.
 - Config lives in `.env` (git-ignored); see `.env.example`.
 
 ## Layout
@@ -117,7 +119,14 @@ for setup, API and import details; this file holds context and decisions.
    users). First-run setup creates the first admin. Tests that aren't about logins pass `requireAuth: false`
    to createApp; keep new API tests doing the same, and add admin-only paths to `adminOnlyApi` in src/auth.js.
    Next: extra stops; Letters (waiting on the legacy Letters table).
-2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs); Personnel with
+2. Waiting on owner: full Cities/Zip export (current one stops at 10,000 rows, no TX ZIPs; **urgent before launch**:
+   with no TX ZIPs the ZIP fallback fails for local addresses, so a Census outage/no-match gives an error, not miles); Personnel with
    PersonnelID (to link Adjustments; 18 placeholders exist); Items, Inventory, Letters tables (itemized pricing).
-3. Owner to review the imported rate card. Census geocoder untested live (blocked in the build sandbox).
+3. Owner to review the imported rate card. Census geocoder still untested live: `geocoding.geo.census.gov` is
+   blocked by the cloud session's network policy (allow it in the environment's Network access settings) or run
+   `npm run distance-check` on the owner's machine with real addresses; then confirm ROAD_DISTANCE_FACTOR 1.2
+   against the Google Maps driving miles it prints.
+   Owner still to send: Items, Letters and full Zip exports.
 4. Before launch: migrations, backups, deployment (HTTPS + COOKIE_SECURE=1).
+5. Workflow: commit to `main` (owner's choice). Start new cloud sessions with `hsavio/moveops` selected as the
+   source so GitHub access works from the start. Keep this "Open items" list current at the end of each session.
